@@ -61,9 +61,13 @@ export function Navbar() {
         </Link>
 
 
-        <button className="ml-2 rounded-md p-2 hover:bg-muted">
+        <Link
+          href="/user"
+          aria-label="Your account"
+          className="ml-2 rounded-md p-2 hover:bg-muted"
+        >
           <User className="size-5" />
-        </button>
+        </Link>
       </div>
     </nav>
   )

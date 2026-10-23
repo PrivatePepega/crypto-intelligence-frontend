@@ -6,6 +6,7 @@ import "./globals.css";
 
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ChatWidget } from "@/components/chat/chat-widget";
 import { AuthProvider } from "@/components/providers/auth-context-provider";
 import ReactQueryProvider from "@/components/providers/react-query-provider";
 
@@ -46,6 +47,8 @@ export default function RootLayout({
                 <main className="flex-1 p-6">{children}</main>
               </div>
             </div>
+
+            <ChatWidget />
           </AuthProvider>
         </ReactQueryProvider>
       </body>

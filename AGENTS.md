@@ -20,6 +20,16 @@ Treat this as a serious production-oriented application, not a prototype.
 
 ---
 
+## Related Repositories
+
+- **Backend**: separate checkout at `..\..\crypto Backend\crypto-intelligence-backend`.
+  It is **read-only from this frontend session**: do not edit backend source,
+  config, dependencies, or `.env`. Inspect it only for API context, and report
+  required backend changes to the user, who applies them in the dedicated
+  backend session. See `docs/BACKEND.md`.
+
+---
+
 ## Core Architecture
 
 Prefer this general data flow:
