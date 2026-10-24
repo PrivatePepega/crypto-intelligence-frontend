@@ -117,6 +117,7 @@ function ChatComposer({
         )}
       </div>
     </form>
+  );
 }
 
 function EmptyChatState() {
