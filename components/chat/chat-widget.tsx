@@ -298,7 +298,7 @@ export function ChatWidget() {
           id="assistant-panel"
           role="dialog"
           aria-label="CryptoIntel assistant"
-          className="flex h-[32rem] max-h-[calc(100dvh-8rem)] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-2xl"
+          className="flex h-[min(42rem,calc(100dvh-7rem))] max-h-[calc(100dvh-7rem)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-2xl"
         >
           <header className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
