@@ -8,6 +8,7 @@ import { useAuth } from "@/components/providers/auth-context-provider";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Message, MessageAvatar, MessageContent } from "@/components/ui/message";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import {
   MAX_CHAT_MESSAGE_LENGTH,
   useChatbot,
@@ -76,61 +77,46 @@ function ChatComposer({
       }}
       className="border-t bg-background/90 p-3"
     >
-      <div className="flex items-end gap-2">
-        <textarea
+      <InputGroup className="h-auto min-h-12 rounded-xl bg-muted/20 p-1.5">
+        <InputGroupTextarea
           ref={inputRef}
           rows={1}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
               void submit();
             }
           }}
           maxLength={MAX_CHAT_MESSAGE_LENGTH}
           disabled={isBusy}
-          placeholder={
-            isLoading
-              ? "Loading conversation..."
-              : isSending
-                ? "Waiting for the assistant..."
-                : "Ask the market chatbot..."
-          }
+          placeholder={isLoading ? "Loading conversation..." : isSending ? "Waiting for the assistant..." : "Ask the market chatbot..."}
           aria-label="Message"
-          className="max-h-28 min-h-10 flex-1 resize-none rounded-xl border bg-muted/20 px-3 py-2 text-sm outline-none transition focus:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"
+          className="max-h-28 min-h-9 px-2 text-sm placeholder:text-muted-foreground"
         />
-
-        <Button
-          type="submit"
-          size="icon"
-          aria-label="Send message"
-          disabled={isBusy || !input.trim()}
-        >
-          {isSending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-4" />
-          )}
-        </Button>
-      </div>
-
+        <InputGroupAddon align="inline-end" className="self-end pb-0.5">
+          <InputGroupButton
+            type="submit"
+            variant="default"
+            size="icon-sm"
+            aria-label="Send message"
+            disabled={isBusy || !input.trim()}
+            className="rounded-lg"
+          >
+            {isSending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>AI can make mistakes. Verify important information.</span>
-
         {input.length > MAX_CHAT_MESSAGE_LENGTH - 1000 && (
           <span className="shrink-0 tabular-nums">
-            {input.length.toLocaleString()}/
-            {MAX_CHAT_MESSAGE_LENGTH.toLocaleString()}
+            {input.length.toLocaleString()}/{MAX_CHAT_MESSAGE_LENGTH.toLocaleString()}
           </span>
         )}
       </div>
     </form>
-  );
 }
 
 function EmptyChatState() {
