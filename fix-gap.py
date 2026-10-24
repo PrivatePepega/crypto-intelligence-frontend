@@ -1,5 +1,0 @@
-f = open('components/indicators/indicator-card.tsx').read()
-f = f.replace('pb-2">', 'pb-0">')
-f = f.replace('pt-1">', 'pt-0">')
-open('components/indicators/indicator-card.tsx', 'w').write(f)
-print('done')

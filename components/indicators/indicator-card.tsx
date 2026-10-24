@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Popover,
@@ -25,26 +25,23 @@ interface IndicatorCardProps {
 export function IndicatorCard({ item }: IndicatorCardProps) {
   const { indicator } = item;
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const net1M = calculateNetChangeForPeriod(item, "1M");
+  const netClassName = net1M === null ? "text-muted-foreground" : net1M > 0 ? "text-green-600 dark:text-green-400" : net1M < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
+  const netDisplay = net1M === null ? "—" : (net1M > 0 ? "+" : "") + formatValue(net1M, item.indicator.unit);
   const [showPopover, setShowPopover] = React.useState(false);
 
   return (
-    <div className="relative">
-      <Card className="h-full transition-shadow hover:shadow-md">
-        <CardHeader className="pb-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                <Badge variant="outline" className="text-[10px] font-medium py-0.5 px-1.5">
-                  {indicator.domain}
-                </Badge>
-                <span className="text-xs text-muted-foreground">/</span>
-                <Badge variant="secondary" className="text-xs whitespace-nowrap py-0.5 px-2">
-                  {indicator.category}
-                </Badge>
-              </div>
-              <h3 className="text-lg font-semibold break-words mb-0">{indicator.name}</h3>
+    <div className="relative h-full flex flex-col">
+      <Card className="h-full flex flex-col">
+        {/* Top meta row: badges + ? + arrow in their own box */}
+        <div className="px-2 pt-0 pb-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="outline" className="text-[10px] font-medium py-0 px-1.5">{indicator.domain}</Badge>
+              <span className="text-xs text-muted-foreground">/</span>
+              <Badge variant="secondary" className="text-xs whitespace-nowrap py-0 px-1.5">{indicator.category}</Badge>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 shrink-0">
               <Popover open={showPopover} onOpenChange={setShowPopover}>
                 <PopoverTrigger>
                   <button
@@ -55,58 +52,20 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                     <HelpCircle className="size-4" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-80">
-                  <div className="space-y-4 p-1">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                        <Badge variant="outline" className="text-[10px] font-medium py-0.5 px-1.5">
-                          {indicator.domain}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">/</span>
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap py-0.5 px-2">
-                          {indicator.category}
-                        </Badge>
-                      </div>
-                      <h4 className="mt-1 text-sm font-semibold text-foreground">
-                        {indicator.name}
-                      </h4>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Source: {indicator.source} · {indicator.nativeFrequency}
-                      </p>
+                <PopoverContent align="end" className="w-72" side="bottom">
+                  <div className="space-y-3 p-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{indicator.domain}</Badge>
+                      <span>/</span>
+                      <Badge variant="secondary" className="text-xs">{indicator.category}</Badge>
                     </div>
-                    <div className="space-y-3 pt-3 border-t">
-                      {indicator.description && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Description
-                          </p>
-                          <p className="text-sm text-foreground">{indicator.description}</p>
-                        </div>
-                      )}
-                      {indicator.use && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Use Case
-                          </p>
-                          <p className="text-sm text-foreground">{indicator.use}</p>
-                        </div>
-                      )}
-                      {indicator.purpose && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Purpose
-                          </p>
-                          <p className="text-sm text-foreground">{indicator.purpose}</p>
-                        </div>
-                      )}
-                      {indicator.significance && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Significance
-                          </p>
-                          <p className="text-sm text-foreground">{indicator.significance}</p>
-                        </div>
-                      )}
+                    <h4 className="text-sm font-semibold">{indicator.name}</h4>
+                    <p className="text-xs text-muted-foreground">Source: {indicator.source} · {indicator.nativeFrequency}</p>
+                    <div className="pt-2 border-t space-y-2">
+                      {indicator.description && <p className="text-xs"><strong>Description:</strong> {indicator.description}</p>}
+                      {indicator.use && <p className="text-xs"><strong>Use:</strong> {indicator.use}</p>}
+                      {indicator.purpose && <p className="text-xs"><strong>Purpose:</strong> {indicator.purpose}</p>}
+                      {indicator.significance && <p className="text-xs"><strong>Significance:</strong> {indicator.significance}</p>}
                     </div>
                   </div>
                 </PopoverContent>
@@ -121,119 +80,76 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
               </button>
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="px-4 pb-3 pt-0">
-          {/* Current Value */}
-          <div className="mb-0">
-            <span className="text-3xl font-bold tabular-nums">{formatValue(getCurrentValue(item), item.indicator.unit)}</span>
-            <p className="text-xs text-muted-foreground mt-0.5">{item.indicator.unit}</p>
+        {/* Indicator name — full width, its own box */}
+        <div className="px-2 pb-0 pt-0">
+          <h3 className="text-xl font-bold break-words leading-snug">{indicator.name}</h3>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-4 border-t" />
+
+        {/* Current Value — its own box */}
+        <div className="px-2 pt-0 pb-0">
+          <div>
+            <span className="text-4xl font-extrabold tabular-nums tracking-tight">{formatValue(getCurrentValue(item), item.indicator.unit)}</span>
+            <span className="text-sm text-muted-foreground ml-2">{item.indicator.unit}</span>
           </div>
+        </div>
 
-          {/* Divider */}
-          <div className="border-t mb-1" />
-
-          {/* 1M MA and Net Change - Vertical Layout */}
-          <div className="grid grid-cols-2 gap-2 mb-0">
-            <div className="flex flex-col items-start gap-0.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">1M MA</span>
-              <span className="font-semibold tabular-nums text-foreground text-lg">
-                {formatValue(calculateSMAForPeriod(item, "1M"), item.indicator.unit)}
-              </span>
+        {/* 1M MA and Net Change */}
+        <div className="px-4 pb-0 pt-0">
+          <div className="grid grid-cols-2 gap-0">
+            <div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">1M MA</p>
+              <span className="font-bold text-foreground text-lg">{formatValue(calculateSMAForPeriod(item, "1M"), item.indicator.unit)}</span>
             </div>
-            <div className="flex flex-col items-start gap-0.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Net Change</span>
-              <span className={cn(
-                "font-semibold tabular-nums",
-                (() => {
-                  const net = calculateNetChangeForPeriod(item, "1M");
-                  if (net === null) return "text-muted-foreground";
-                  return net > 0 ? "text-green-600 dark:text-green-400" : net < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
-                })()
-              )}>
-                {(() => {
-                  const net = calculateNetChangeForPeriod(item, "1M");
-                  if (net === null) return "—";
-                  return (net > 0 ? "+" : "") + formatValue(net, item.indicator.unit);
-                })()}
-              </span>
+            <div>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Net Change</p>
+              <span className="font-semibold text-lg">{formatValue(calculateNetChangeForPeriod(item, "1M"), item.indicator.unit) || "—"}</span>
             </div>
           </div>
+        </div>
 
-          {/* Expandable detailed table */}
-          {isExpanded && (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm" role="table">
-                <thead>
-                  <tr className="border-b border-muted">
-                    <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Period
-                    </th>
-                    <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      MA
-                    </th>
-                    <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Net Change
-                    </th>
-                    <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      % Change
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(["2W", "1M", "3M", "6M", "12M", "24M"] as const).map((period) => {
-                    const net = calculateNetChangeForPeriod(item, period);
-                    return (
-                      <tr key={period} className="border-b border-muted/50 hover:bg-muted/30">
-                        <td className="py-2 px-3 text-xs font-medium text-foreground">
-                          {period}
-                        </td>
-                        <td className="py-2 px-3 text-xs text-right tabular-nums text-foreground">
-                          {formatValue(calculateSMAForPeriod(item, period), item.indicator.unit)}
-                        </td>
-                        <td className="py-2 px-3 text-xs text-right tabular-nums">
-                          <span className={cn("font-semibold", net !== null && net > 0 ? "text-green-600 dark:text-green-400" : net !== null && net < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>
-                            {net !== null ? (net > 0 ? "+" : "") + formatValue(net, item.indicator.unit) : "—"}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-xs text-right tabular-nums">
-                          <span className={cn("font-semibold", net !== null && net > 0 ? "text-green-600 dark:text-green-400" : net !== null && net < 0 ? "text-red-600 dark:text-red-400" : "text-foreground")}>
-                            {net !== null ? (net > 0 ? "+" : "") + (net / Math.abs(getCurrentValue(item) || 1) * 100).toFixed(2) + "%" : "—"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-        </CardContent>
+        {/* Expandable table */}
+        {isExpanded && (
+          <div className="mx-4 mt-0 overflow-x-auto">
+            <table className="w-full text-sm" role="table">
+              <thead>
+                <tr className="border-b border-muted">
+                  <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Period</th>
+                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">MA</th>
+                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Net Change</th>
+                  <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">% Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(["2W", "1M", "3M", "6M", "12M", "24M"] as const).map((period) => {
+                  const net = calculateNetChangeForPeriod(item, period);
+                  return (
+                    <tr key={period} className="border-b border-muted/50 hover:bg-muted/30">
+                      <td className="py-2 px-3 text-xs font-medium text-foreground">{period}</td>
+                      <td className="py-2 px-3 text-xs text-right tabular-nums text-foreground">{formatValue(calculateSMAForPeriod(item, period), item.indicator.unit)}</td>
+                      <td className="py-2 px-3 text-xs text-right tabular-nums">
+                        <span className={cn("font-semibold", net !== null && net > 0 ? "text-green-600 dark:text-green-400" : net !== null && net < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>
+                          {net !== null ? (net > 0 ? "+" : "") + formatValue(net, item.indicator.unit) : "—"}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-xs text-right tabular-nums">
+                        <span className={cn("font-semibold", net !== null && net > 0 ? "text-green-600 dark:text-green-400" : net !== null && net < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>
+                          {net !== null ? (net > 0 ? "+" : "") + (net / Math.abs(getCurrentValue(item) || 1) * 100).toFixed(2) + "%" : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );
 }
 
-export function IndicatorCardCompact({ item }: { item: IndicatorDataItem }) {
-  const { indicator, current } = item;
-  const currentValue = getCurrentValue(item);
-  const formattedCurrent = formatValue(currentValue, indicator.unit);
-
-  return (
-    <div className="p-4 bg-card border rounded-xl hover:border-primary/50 transition-colors">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0">
-          <h4 className="font-semibold truncate">{indicator.name}</h4>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-xs text-muted-foreground">{indicator.domain}</span>
-            <span className="text-xs text-muted-foreground">·</span>
-            <span className="text-xs text-muted-foreground">{indicator.category}</span>
-          </div>
-        </div>
-        <span className="text-2xl font-bold tabular-nums">{formattedCurrent}</span>
-      </div>
-      <div className="text-xs text-muted-foreground">{indicator.unit}</div>
-    </div>
-  );
-}
