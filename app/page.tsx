@@ -80,12 +80,10 @@ export default function Home() {
           <h2 className="text-2xl font-bold">{title}</h2>
           <p className="text-muted-foreground mt-1">{description}</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => (
-            <div key={item.indicator.id} className="min-h-[200px]">
-              <div className="h-full">
-                <IndicatorCard item={item} />
-              </div>
+            <div key={item.indicator.id} className="min-w-0">
+              <IndicatorCard item={item} />
             </div>
           ))}
         </div>
