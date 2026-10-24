@@ -6,39 +6,32 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/providers/auth-context-provider";
 import { Button } from "@/components/ui/button";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Message, MessageAvatar, MessageContent } from "@/components/ui/message";
 import {
   MAX_CHAT_MESSAGE_LENGTH,
   useChatbot,
   type ChatSendResult,
 } from "@/hooks/use-chatbot";
 import type { ChatMessage } from "@/types";
-import { cn } from "@/lib/utils";
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("flex items-end gap-2", isUser && "justify-end")}>
+    <Message align={isUser ? "end" : "start"} className="gap-2">
       {!isUser && (
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-          <Bot className="size-4" />
-        </div>
+        <MessageAvatar className="size-7 bg-muted text-muted-foreground [&_svg]:size-4">
+          <Bot aria-hidden="true" />
+        </MessageAvatar>
       )}
-
-      <div
-        className={cn(
-          "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-          isUser
-            ? "rounded-br-sm bg-primary text-primary-foreground"
-            : "rounded-bl-sm bg-muted text-foreground"
-        )}
-      >
-        <span className="sr-only">
-          {isUser ? "You said: " : "Assistant said: "}
-        </span>
-        {message.content}
-      </div>
-    </div>
+      <MessageContent className="min-w-0 max-w-[88%] gap-1">
+        <span className="sr-only">{isUser ? "You said: " : "Assistant said: "}</span>
+        <Bubble align={isUser ? "end" : "start"} variant={isUser ? "default" : "muted"} className="max-w-full">
+          <BubbleContent>{message.content}</BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
   );
 }
 
@@ -81,7 +74,7 @@ function ChatComposer({
         event.preventDefault();
         void submit();
       }}
-      className="border-t p-3"
+      className="border-t bg-background/90 p-3"
     >
       <div className="flex items-end gap-2">
         <textarea
@@ -109,7 +102,7 @@ function ChatComposer({
                 : "Ask the market chatbot..."
           }
           aria-label="Message"
-          className="max-h-28 min-h-10 flex-1 resize-none rounded-lg border bg-muted/30 px-3 py-2 text-sm outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          className="max-h-28 min-h-10 flex-1 resize-none rounded-xl border bg-muted/20 px-3 py-2 text-sm outline-none transition focus:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <Button
