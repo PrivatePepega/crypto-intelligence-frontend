@@ -1,294 +1,30 @@
 "use client";
 
-import { Bot, Loader2, Lock, Send, X } from "lucide-react";
+import { Bot, Loader2, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { ChatInterface } from "@/components/chat/chat-interface";
 import { useAuth } from "@/components/providers/auth-context-provider";
-import { Button } from "@/components/ui/button";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Message, MessageAvatar, MessageContent } from "@/components/ui/message";
-import {
-  MessageScroller,
-  MessageScrollerButton,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "@/components/ui/message-scroller";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import {
-  MAX_CHAT_MESSAGE_LENGTH,
-  useChatbot,
-  type ChatSendResult,
-} from "@/hooks/use-chatbot";
-import type { ChatMessage } from "@/types";
-
-function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-
-  return (
-    <Message align={isUser ? "end" : "start"} className="gap-2">
-      {!isUser && (
-        <MessageAvatar className="size-7 bg-muted text-muted-foreground [&_svg]:size-4">
-          <Bot aria-hidden="true" />
-        </MessageAvatar>
-      )}
-      <MessageContent className="min-w-0 max-w-[88%] gap-1">
-        <span className="sr-only">{isUser ? "You said: " : "Assistant said: "}</span>
-        <Bubble align={isUser ? "end" : "start"} variant={isUser ? "default" : "muted"} className="max-w-full">
-          <BubbleContent>{message.content}</BubbleContent>
-        </Bubble>
-      </MessageContent>
-    </Message>
-  );
-}
-
-function ChatComposer({
-  isLoading,
-  isSending,
-  onSend,
-}: {
-  isLoading: boolean;
-  isSending: boolean;
-  onSend: (content: string) => Promise<ChatSendResult>;
-}) {
-  const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const isBusy = isLoading || isSending;
-
-  useEffect(() => {
-    if (!isBusy) {
-      inputRef.current?.focus();
-    }
-  }, [isBusy]);
-
-  const submit = async () => {
-    const content = input.trim();
-
-    if (!content || isBusy) return;
-
-    setInput("");
-
-    const result = await onSend(content);
-
-    if (!result.ok && result.restoreDraft) {
-      setInput(content);
-    }
-  };
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-      className="border-t bg-background/90 p-3"
-    >
-      <InputGroup className="h-auto min-h-12 rounded-xl bg-muted/20 p-1.5">
-        <InputGroupTextarea
-          ref={inputRef}
-          rows={1}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              void submit();
-            }
-          }}
-          maxLength={MAX_CHAT_MESSAGE_LENGTH}
-          disabled={isBusy}
-          placeholder={isLoading ? "Loading conversation..." : isSending ? "Waiting for the assistant..." : "Ask the market chatbot..."}
-          aria-label="Message"
-          className="max-h-28 min-h-9 px-2 text-sm placeholder:text-muted-foreground"
-        />
-        <InputGroupAddon align="inline-end" className="self-end pb-0.5">
-          <InputGroupButton
-            type="submit"
-            variant="default"
-            size="icon-sm"
-            aria-label="Send message"
-            disabled={isBusy || !input.trim()}
-            className="rounded-lg"
-          >
-            {isSending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span>AI can make mistakes. Verify important information.</span>
-        {input.length > MAX_CHAT_MESSAGE_LENGTH - 1000 && (
-          <span className="shrink-0 tabular-nums">
-            {input.length.toLocaleString()}/{MAX_CHAT_MESSAGE_LENGTH.toLocaleString()}
-          </span>
-        )}
-      </div>
-    </form>
-  );
-}
-
-function EmptyChatState() {
-  return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-3 px-4 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <Bot className="size-5" />
-      </div>
-
-      <div>
-        <p className="text-sm font-semibold">Ask about the market</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ask about markets, assets, indicators, or macro conditions.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function SignedInChat() {
-  const {
-    messages,
-    isLoading,
-    isSending,
-    error,
-    loadError,
-    load,
-    send,
-    clearError,
-  } = useChatbot(true);
-
-  const messagesRef = useRef<HTMLDivElement>(null);
-  const lastMessage = messages.at(-1);
-
-  return (
-    <>
-      <MessageScrollerProvider autoScroll>
-        <MessageScroller className="min-h-0 flex-1">
-          <MessageScrollerViewport>
-            <MessageScrollerContent className="gap-4 p-4">
-              <div
-                ref={messagesRef}
-                role="log"
-                aria-live="polite"
-                aria-busy={isSending}
-                className="flex min-w-0 flex-col gap-4"
-              >
-                {isLoading && messages.length === 0 && (
-                  <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading conversation...
-                  </div>
-                )}
-
-                {isLoading && messages.length > 0 && (
-                  <p className="text-center text-xs text-muted-foreground">Refreshing conversation...</p>
-                )}
-
-                {loadError && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-                    <p className="break-words text-destructive">{loadError}</p>
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => void load()} disabled={isLoading || isSending}>Retry</Button>
-                  </div>
-                )}
-
-                {!isLoading && !loadError && messages.length === 0 && <EmptyChatState />}
-
-                {messages.map((message) => (
-                  <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === "user"}>
-                    <MessageBubble message={message} />
-                  </MessageScrollerItem>
-                ))}
-
-                {isSending && (
-                  <MessageScrollerItem messageId="assistant-thinking">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted"><Loader2 className="size-4 animate-spin" /></div>
-                      Researching...
-                    </div>
-                  </MessageScrollerItem>
-                )}
-
-                {!isLoading && !loadError && !isSending && !error && lastMessage?.role === "user" && (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    <span>The last message has no reply yet.</span>
-                    <button type="button" onClick={() => void load()} className="font-medium text-foreground hover:underline">Refresh</button>
-                  </div>
-                )}
-              </div>
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-          <MessageScrollerButton />
-        </MessageScroller>
-      </MessageScrollerProvider>
-
-      {error && (
-        <div
-          role="alert"
-          className="border-t bg-destructive/10 px-4 py-2 text-xs text-destructive"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <p className="break-words">{error}</p>
-
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  clearError();
-                  void load();
-                }}
-                disabled={isLoading || isSending}
-                className="rounded px-1.5 py-0.5 font-medium hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50"
-              >
-                Refresh
-              </button>
-
-              <button
-                type="button"
-                onClick={clearError}
-                aria-label="Dismiss error"
-                className="rounded p-0.5 hover:bg-destructive/10"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ChatComposer
-        isLoading={isLoading}
-        isSending={isSending}
-        onSend={send}
-      />
-    </>
-  );
-}
 
 export function ChatWidget() {
   const { user, isLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const signInRef = useRef<HTMLAnchorElement>(null);
 
-  // Close the panel with Escape from anywhere.
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
+      if (event.key === "Escape") setIsOpen(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  // Move keyboard focus into the panel when it opens for a signed-out user.
   useEffect(() => {
-    if (isOpen && !isLoading && !user) {
-      signInRef.current?.focus();
-    }
+    if (isOpen && !isLoading && !user) signInRef.current?.focus();
   }, [isOpen, isLoading, user]);
 
   return (
@@ -300,26 +36,18 @@ export function ChatWidget() {
           aria-label="CryptoIntel assistant"
           className="flex h-[min(42rem,calc(100dvh-7rem))] max-h-[calc(100dvh-7rem)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-2xl"
         >
-          <header className="flex items-center justify-between border-b px-4 py-3">
+          <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
                 <Bot className="size-5" />
               </div>
-
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">
-                  CryptoIntel Assistant
-                </p>
+                <p className="truncate text-sm font-semibold">CryptoIntel Assistant</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {isLoading
-                    ? "Checking your session..."
-                    : user
-                      ? "Crypto research assistant"
-                      : "Sign in required"}
+                  {isLoading ? "Checking your session..." : user ? "Crypto research assistant" : "Sign in required"}
                 </p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => setIsOpen(false)}
@@ -340,15 +68,12 @@ export function ChatWidget() {
               <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                 <Lock className="size-5 text-muted-foreground" />
               </div>
-
               <div>
                 <p className="text-sm font-semibold">You need to log in</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Sign in to your account to have access to the CryptoIntel
-                  assistant.
+                  Sign in to your account to access the CryptoIntel assistant.
                 </p>
               </div>
-
               <Link
                 ref={signInRef}
                 href="/user"
@@ -359,7 +84,7 @@ export function ChatWidget() {
               </Link>
             </div>
           ) : (
-            <SignedInChat key={user.id} />
+            <ChatInterface key={user.id} />
           )}
         </section>
       )}
