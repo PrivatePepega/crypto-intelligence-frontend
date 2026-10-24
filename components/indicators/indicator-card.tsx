@@ -29,7 +29,12 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
 
   return (
     <div className="relative flex flex-col self-start">
-      <Card className="flex min-h-[280px] flex-col gap-3 p-4">
+      <Card
+        className={cn(
+          "flex flex-col gap-3 p-4",
+          isExpanded ? "min-h-[280px]" : "h-[280px]"
+        )}
+      >
         {/* Metadata and actions */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -49,6 +54,13 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
               {indicator.category}
             </Badge>
           </div>
+
+
+
+
+
+
+
 
           <div className="flex shrink-0 items-center gap-1">
             <Popover open={showPopover} onOpenChange={setShowPopover}>
@@ -84,35 +96,60 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                     Source: {indicator.source} · {indicator.nativeFrequency}
                   </p>
 
-                  <div className="space-y-2 border-t pt-3">
-                    {indicator.description && (
-                      <p className="text-xs">
-                        <strong>Description:</strong> {indicator.description}
-                      </p>
-                    )}
+                  <div className="space-y-3 border-t pt-3">
+  {indicator.description && (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-white">Description</p>
+      <p className="text-xs text-muted-foreground">
+        {indicator.description}
+      </p>
+    </div>
+  )}
 
-                    {indicator.use && (
-                      <p className="text-xs">
-                        <strong>Use:</strong> {indicator.use}
-                      </p>
-                    )}
+  {indicator.use && (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-white">Use</p>
+      <p className="text-xs text-muted-foreground">
+        {indicator.use}
+      </p>
+    </div>
+  )}
 
-                    {indicator.purpose && (
-                      <p className="text-xs">
-                        <strong>Purpose:</strong> {indicator.purpose}
-                      </p>
-                    )}
+  {indicator.purpose && (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-white">Purpose</p>
+      <p className="text-xs text-muted-foreground">
+        {indicator.purpose}
+      </p>
+    </div>
+  )}
 
-                    {indicator.significance && (
-                      <p className="text-xs">
-                        <strong>Significance:</strong>{" "}
-                        {indicator.significance}
-                      </p>
-                    )}
-                  </div>
+  {indicator.significance && (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-white">Significance</p>
+      <p className="text-xs text-muted-foreground">
+        {indicator.significance}
+      </p>
+    </div>
+  )}
+</div>
+
+
+
                 </div>
               </PopoverContent>
             </Popover>
+
+
+
+
+
+
+
+
+
+
+
 
             <button
               type="button"
@@ -192,7 +229,10 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                   >
                     {net === null
                       ? "—"
-                      : `${net > 0 ? "+" : ""}${formatValue(net, indicator.unit)}`}
+                      : `${net > 0 ? "+" : ""}${formatValue(
+                          net,
+                          indicator.unit
+                        )}`}
                   </span>
                 );
               })()}
@@ -200,86 +240,122 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
           </div>
         </div>
 
-        {/* Expandable historical statistics */}
-        {isExpanded && (
-          <div className="overflow-x-auto border-t pt-3">
-            <table className="w-full text-sm" role="table">
-              <thead>
-                <tr className="border-b border-muted">
-                  <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Period
-                  </th>
 
-                  <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+
+
+
+{/* Expandable historical statistics */}
+{isExpanded && (
+  <div className="border-t pt-4">
+    <div className="space-y-3">
+      {(
+        [
+          { value: "2W", label: "2 Weeks" },
+          { value: "1M", label: "1 Month" },
+          { value: "3M", label: "3 Months" },
+          { value: "6M", label: "6 Months" },
+          { value: "12M", label: "12 Months" },
+          { value: "24M", label: "24 Months" },
+        ] as const
+      ).map(({ value: period, label }) => {
+        const net = calculateNetChangeForPeriod(item, period);
+        const currentValue = getCurrentValue(item);
+
+        const percentChange =
+          net === null || currentValue === 0
+            ? null
+            : (net / Math.abs(currentValue)) * 100;
+
+        const changeClass =
+          net === null || net === 0
+            ? "text-muted-foreground"
+            : net > 0
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-600 dark:text-red-400";
+
+        const formattedNet =
+          net === null
+            ? "—"
+            : `${net > 0 ? "+" : ""}${formatValue(
+                net,
+                indicator.unit
+              )}`;
+
+        const formattedPercent =
+          percentChange === null
+            ? "—"
+            : `${percentChange > 0 ? "+" : ""}${percentChange.toFixed(2)}%`;
+
+        return (
+          <div key={period} className="space-y-0">
+            {/* One header box: timeframe on top, labels directly underneath */}
+            <div className="overflow-hidden rounded-t-lg border border-border/60">
+              <div className="bg-muted/70 px-3 pt-2">
+                <span className="text-xs font-semibold tracking-wide text-foreground">
+                  {label}
+                </span>
+                
+                <div className="grid grid-cols-3 gap-2 flex justify-center items-center">
+                  <p className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     MA
-                  </th>
-
-                  <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  </p>
+                  <p className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Net Change
-                  </th>
-
-                  <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  </p>
+                  <p className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     % Change
-                  </th>
-                </tr>
-              </thead>
+                  </p>
+                </div>
+              </div>
 
-              <tbody>
-                {(["2W", "1M", "3M", "6M", "12M", "24M"] as const).map(
-                  (period) => {
-                    const net = calculateNetChangeForPeriod(item, period);
-                    const currentValue = getCurrentValue(item);
-                    const percentChange =
-                      net === null || currentValue === 0
-                        ? null
-                        : (net / Math.abs(currentValue)) * 100;
+            </div>
 
-                    const changeClass =
-                      net === null || net === 0
-                        ? "text-muted-foreground"
-                        : net > 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400";
+            {/* Separate box: values only */}
+            <div className="grid grid-cols-3 items-center gap-2 rounded-b-lg border border-t-0 border-border/60 px-3 py-3">
+              <div className="flex min-h-8 min-w-0 items-center justify-center text-center">
+                <p className="break-words text-xs tabular-nums text-muted-foreground">
+                  {formatValue(
+                    calculateSMAForPeriod(item, period),
+                    indicator.unit
+                  )}
+                </p>
+              </div>
 
-                    return (
-                      <tr
-                        key={period}
-                        className="border-b border-muted/50 hover:bg-muted/30"
-                      >
-                        <td className="px-2 py-2 text-xs font-medium text-foreground">
-                          {period}
-                        </td>
+              <div className="flex min-h-8 min-w-0 items-center justify-center text-center">
+                <p
+                  className={cn(
+                    "break-words text-xs font-semibold tabular-nums",
+                    changeClass
+                  )}
+                >
+                  {formattedNet}
+                </p>
+              </div>
 
-                        <td className="px-2 py-2 text-right text-xs tabular-nums text-foreground">
-                          {formatValue(
-                            calculateSMAForPeriod(item, period),
-                            indicator.unit
-                          )}
-                        </td>
-
-                        <td className="px-2 py-2 text-right text-xs tabular-nums">
-                          <span className={cn("font-semibold", changeClass)}>
-                            {net === null
-                              ? "—"
-                              : `${net > 0 ? "+" : ""}${formatValue(net, indicator.unit)}`}
-                          </span>
-                        </td>
-
-                        <td className="px-2 py-2 text-right text-xs tabular-nums">
-                          <span className={cn("font-semibold", changeClass)}>
-                            {percentChange === null
-                              ? "—"
-                              : `${percentChange > 0 ? "+" : ""}${percentChange.toFixed(2)}%`}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  }
-                )}
-              </tbody>
-            </table>
+              <div className="flex min-h-8 min-w-0 items-center justify-center text-center">
+                <p
+                  className={cn(
+                    "break-words text-xs font-semibold tabular-nums",
+                    changeClass
+                  )}
+                >
+                  {formattedPercent}
+                </p>
+              </div>
+            </div>
           </div>
-        )}
+        );
+      })}
+    </div>
+
+    <div className="mt-3 border-t pt-3 text-[10px] text-muted-foreground">
+      MA = Moving Average
+    </div>
+  </div>
+)}
+
+
+        
       </Card>
     </div>
   );
