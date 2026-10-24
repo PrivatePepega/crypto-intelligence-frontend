@@ -264,7 +264,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
         const percentChange =
           net === null || currentValue === 0
             ? null
-            : (net / Math.abs(currentValue)) * 100;
+            : (net / Math.abs(currentValue!)) * 100;
 
         const changeClass =
           net === null || net === 0

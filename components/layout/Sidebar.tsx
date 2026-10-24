@@ -77,7 +77,7 @@ export function Sidebar() {
 
 
   return (
-    <aside className="flex h-[calc(100vh-4rem)] w-60 flex-col border-r bg-background">
+    <aside className="flex h-[calc(100vh-4rem)] w-40 flex-col border-r bg-background">
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-4">
         <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
