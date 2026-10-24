@@ -166,7 +166,7 @@ function SignedInChat() {
         role="log"
         aria-live="polite"
         aria-busy={isSending}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 scroll-smooth"
       >
         {isLoading && messages.length === 0 && (
           <div className="flex min-h-full items-center justify-center gap-2 text-sm text-muted-foreground">
