@@ -8,6 +8,14 @@ import { useAuth } from "@/components/providers/auth-context-provider";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Message, MessageAvatar, MessageContent } from "@/components/ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import {
   MAX_CHAT_MESSAGE_LENGTH,
@@ -152,85 +160,66 @@ function SignedInChat() {
   const messagesRef = useRef<HTMLDivElement>(null);
   const lastMessage = messages.at(-1);
 
-  useEffect(() => {
-    const container = messagesRef.current;
-
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [messages, isSending, isLoading]);
-
   return (
     <>
-      <div
-        ref={messagesRef}
-        role="log"
-        aria-live="polite"
-        aria-busy={isSending}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 scroll-smooth"
-      >
-        {isLoading && messages.length === 0 && (
-          <div className="flex min-h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading conversation...
-          </div>
-        )}
-
-        {isLoading && messages.length > 0 && (
-          <p className="text-center text-xs text-muted-foreground">
-            Refreshing conversation...
-          </p>
-        )}
-
-        {loadError && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-            <p className="break-words text-destructive">{loadError}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => void load()}
-              disabled={isLoading || isSending}
-            >
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {!isLoading && !loadError && messages.length === 0 && (
-          <EmptyChatState />
-        )}
-
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-
-        {isSending && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-            Researching...
-          </div>
-        )}
-
-        {!isLoading &&
-          !loadError &&
-          !isSending &&
-          !error &&
-          lastMessage?.role === "user" && (
-            <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-              <span>The last message has no reply yet.</span>
-              <button
-                type="button"
-                onClick={() => void load()}
-                className="font-medium text-foreground hover:underline"
+      <MessageScrollerProvider autoScroll>
+        <MessageScroller className="min-h-0 flex-1">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="gap-4 p-4">
+              <div
+                ref={messagesRef}
+                role="log"
+                aria-live="polite"
+                aria-busy={isSending}
+                className="flex min-w-0 flex-col gap-4"
               >
-                Refresh
-              </button>
-            </div>
-          )}
-      </div>
+                {isLoading && messages.length === 0 && (
+                  <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading conversation...
+                  </div>
+                )}
+
+                {isLoading && messages.length > 0 && (
+                  <p className="text-center text-xs text-muted-foreground">Refreshing conversation...</p>
+                )}
+
+                {loadError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+                    <p className="break-words text-destructive">{loadError}</p>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => void load()} disabled={isLoading || isSending}>Retry</Button>
+                  </div>
+                )}
+
+                {!isLoading && !loadError && messages.length === 0 && <EmptyChatState />}
+
+                {messages.map((message) => (
+                  <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === "user"}>
+                    <MessageBubble message={message} />
+                  </MessageScrollerItem>
+                ))}
+
+                {isSending && (
+                  <MessageScrollerItem messageId="assistant-thinking">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted"><Loader2 className="size-4 animate-spin" /></div>
+                      Researching...
+                    </div>
+                  </MessageScrollerItem>
+                )}
+
+                {!isLoading && !loadError && !isSending && !error && lastMessage?.role === "user" && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    <span>The last message has no reply yet.</span>
+                    <button type="button" onClick={() => void load()} className="font-medium text-foreground hover:underline">Refresh</button>
+                  </div>
+                )}
+              </div>
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
 
       {error && (
         <div
