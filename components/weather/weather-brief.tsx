@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { NoDataNotice } from "@/components/briefs/no-data-notice";
 import {
   Card,
   CardContent,
@@ -27,6 +28,12 @@ interface WeatherBriefSectionProps {
   brief: WeatherBrief | null | undefined;
   isLoading: boolean;
   error: unknown;
+  /** True when the selected date had no brief and the latest is shown. */
+  isFallback?: boolean;
+  /** Formatted selected date, used in the empty state. */
+  dateLabel?: string | null;
+  /** True when the request asked for the most recent brief instead of a date. */
+  latest?: boolean;
 }
 
 function formatDomain(value: string): string {
@@ -93,6 +100,9 @@ export function WeatherBriefSection({
   brief,
   isLoading,
   error,
+  isFallback,
+  dateLabel,
+  latest,
 }: WeatherBriefSectionProps) {
   if (isLoading) {
     return (
@@ -137,9 +147,15 @@ export function WeatherBriefSection({
             <CalendarDays className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
 
             <div>
-              <p className="text-sm font-medium">No daily brief yet</p>
+              <p className="text-sm font-medium">
+                {latest || !dateLabel
+                  ? "No daily brief yet"
+                  : `No daily brief for ${dateLabel}`}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                The next generated brief will appear here once it is stored.
+                {latest || !dateLabel
+                  ? "The next generated brief will appear here once it is stored."
+                  : "Pick another date or switch to Latest to see the most recent brief."}
               </p>
             </div>
           </div>
@@ -195,6 +211,7 @@ export function WeatherBriefSection({
         </CardHeader>
 
         <CardContent className="space-y-5">
+          {isFallback && <NoDataNotice dateLabel={dateLabel} />}
           {executiveSummary && (
             <div className="rounded-lg border bg-muted/40 p-4">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">

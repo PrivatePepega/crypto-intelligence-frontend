@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { AuthProvider } from "@/components/providers/auth-context-provider";
+import { BriefSelectionProvider } from "@/components/providers/brief-selection-provider";
 import ReactQueryProvider from "@/components/providers/react-query-provider";
 
 const geistSans = Geist({
@@ -38,17 +39,19 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <ReactQueryProvider>
           <AuthProvider>
-            <div className="min-h-screen bg-background text-foreground">
-              <Navbar />
+            <BriefSelectionProvider>
+              <div className="min-h-screen bg-background text-foreground">
+                <Navbar />
 
-              <div className="flex">
-                <Sidebar />
+                <div className="flex">
+                  <Sidebar />
 
-                <main className="flex-1 p-6">{children}</main>
+                  <main className="flex-1 p-6">{children}</main>
+                </div>
               </div>
-            </div>
 
-            <ChatWidget />
+              <ChatWidget />
+            </BriefSelectionProvider>
           </AuthProvider>
         </ReactQueryProvider>
       </body>

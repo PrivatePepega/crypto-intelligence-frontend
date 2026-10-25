@@ -34,8 +34,12 @@ api.interceptors.response.use(
   }
 );
 
-const postData = async <T>(url: string, data: unknown): Promise<T> => {
-  const response = await api.post(url, data);
+const postData = async <T>(
+  url: string,
+  data: unknown,
+  params?: Record<string, string>
+): Promise<T> => {
+  const response = await api.post(url, data, { params });
 
   return response.data;
 };
@@ -46,8 +50,11 @@ const updateData = async <T>(url: string, data: unknown): Promise<T> => {
   return response.data;
 };
 
-const fetchData = async <T>(url: string): Promise<T> => {
-  const response = await api.get(url);
+const fetchData = async <T>(
+  url: string,
+  params?: Record<string, string>
+): Promise<T> => {
+  const response = await api.get(url, { params });
 
   return response.data;
 };

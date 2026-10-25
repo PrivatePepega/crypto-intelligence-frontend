@@ -2,10 +2,11 @@
 
 import { ClimateBriefSection } from "@/components/climate/climate-brief";
 import { IndicatorCard } from "@/components/indicators/indicator-card";
+import { useBriefSelection } from "@/components/providers/brief-selection-provider";
+import { ObservationsResearchSection } from "@/components/weather/observations-research";
 import { WeatherBriefSection } from "@/components/weather/weather-brief";
-import { useClimateBrief } from "@/hooks/use-climate-brief";
 import { useIndicatorData } from "@/hooks/use-indicator-data";
-import { useWeatherBrief } from "@/hooks/use-weather-brief";
+import { formatBriefDate } from "@/lib/brief-format";
 import type { FetchIndicatorDataResponse } from "@/types";
 
 const macroIndicators = [
@@ -33,6 +34,9 @@ const quarterlyIndicators = [
 ];
 
 export default function Home() {
+  const { weather, climate, observations, date, latest } = useBriefSelection();
+  const briefDateLabel = formatBriefDate(date ?? undefined);
+
   const { data: macroData, isLoading: macroLoading, error: macroError } = useIndicatorData({
     indicators: macroIndicators,
     historyLimit: 250,
@@ -52,18 +56,6 @@ export default function Home() {
     indicators: quarterlyIndicators,
     historyLimit: 100,
   });
-
-  const {
-    data: weatherBrief,
-    isLoading: weatherLoading,
-    error: weatherError,
-  } = useWeatherBrief();
-
-  const {
-    data: climateBrief,
-    isLoading: climateLoading,
-    error: climateError,
-  } = useClimateBrief();
 
   const isLoading = macroLoading || cryptoLoading || weeklyMonthlyLoading || quarterlyLoading;
   const error = macroError || cryptoError || weeklyMonthlyError || quarterlyError;
@@ -99,15 +91,30 @@ export default function Home() {
       </div>
 
       <WeatherBriefSection
-        brief={weatherBrief}
-        isLoading={weatherLoading}
-        error={weatherError}
+        brief={weather.data?.data ?? null}
+        isLoading={weather.isLoading}
+        error={weather.error}
+        isFallback={weather.data?.isFallback ?? false}
+        dateLabel={briefDateLabel}
+        latest={latest}
       />
 
       <ClimateBriefSection
-        brief={climateBrief}
-        isLoading={climateLoading}
-        error={climateError}
+        brief={climate.data?.data ?? null}
+        isLoading={climate.isLoading}
+        error={climate.error}
+        isFallback={climate.data?.isFallback ?? false}
+        dateLabel={briefDateLabel}
+        latest={latest}
+      />
+
+      <ObservationsResearchSection
+        data={observations.data?.data ?? undefined}
+        isLoading={observations.isLoading}
+        error={observations.error}
+        isFallback={observations.data?.isFallback ?? false}
+        dateLabel={briefDateLabel}
+        latest={latest}
       />
 
       <div className="space-y-8">

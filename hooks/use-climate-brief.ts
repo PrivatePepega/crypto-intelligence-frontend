@@ -2,12 +2,34 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { BriefQuery } from "@/lib/brief-query";
 import { fetchClimateBrief } from "@/lib/climate-api";
+import type { ClimateBrief, DatedBriefResult } from "@/types";
 
-export function useClimateBrief() {
+export function useClimateBrief({ date, latest }: BriefQuery) {
   return useQuery({
-    queryKey: ["climate", "brief"],
-    queryFn: fetchClimateBrief,
+    queryKey: ["climate", "brief", latest ? "latest" : (date ?? null)],
+    queryFn: async (): Promise<DatedBriefResult<ClimateBrief>> => {
+      if (latest) {
+        return {
+          data: await fetchClimateBrief({ latest: true }),
+          isFallback: false,
+        };
+      }
+
+      const dated = await fetchClimateBrief({ date });
+
+      if (dated) {
+        return { data: dated, isFallback: false };
+      }
+
+      // The selected day has no brief. Show the newest one and flag it so the
+      // UI can say the date itself had no data.
+      const fallback = await fetchClimateBrief({ latest: true });
+
+      return { data: fallback, isFallback: fallback !== null };
+    },
+    enabled: Boolean(latest || date),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 1,

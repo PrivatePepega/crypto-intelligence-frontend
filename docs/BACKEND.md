@@ -108,6 +108,29 @@ Names only; values live in the backend `.env` and must never be committed.
 secret is needed for another OAuth flow, it belongs only in the backend env,
 never in the frontend.
 
+## Brief API contract
+
+The public brief endpoints accept a single-day selector as a query parameter:
+
+| Request | Meaning |
+| --- | --- |
+| `GET /api-v1/weather/brief?date=2026-10-15` | Weather human brief for that calendar day |
+| `GET /api-v1/weather/brief?latest=true` | Most recent stored weather brief, regardless of date |
+| `GET /api-v1/climate/brief?date=2026-10-15` | Climate human brief for that calendar day |
+| `GET /api-v1/climate/brief?latest=true` | Most recent stored climate brief |
+| `POST /api-v1/weather/observations-research?date=2026-10-15` | Observations + research for that day; body stays `{ domains }` |
+| `POST /api-v1/weather/observations-research?latest=true` | Most recent stored observations + research |
+
+- Dates use `YYYY-MM-DD`.
+- `latest` wins if both are ever sent; the frontend only sends one.
+- The brief routes answer `404` when no row exists for the selection; the frontend
+  treats that as an empty state, not an error.
+- When the selected date is empty, each section refetches with `latest=true`,
+  shows a "No data for <date>" notice in the card, and renders the latest data.
+  The sidebar widget shows a "No Data" badge in that state.
+- `components/providers/brief-selection-provider.tsx` owns the date/Latest state
+  and the three brief queries so the sidebar widget and page never disagree.
+
 ## Chatbot API contract
 
 The backend handoff is `docs/CHATBOT_FRONTEND.md` in the backend repository
@@ -138,6 +161,11 @@ The backend handoff is `docs/CHATBOT_FRONTEND.md` in the backend repository
 | `lib/chatbot-api.ts` | Typed `GET`/`POST` client for `/chatbot/messages`; validates responses with Zod; `credentials: "include"` |
 | `hooks/use-chatbot.ts` | Chat state, optimistic sends, merge/sort, error handling, 401 forced logout |
 | `components/chat/chat-widget.tsx` | Floating assistant on every page; auth-gated; uses the chatbot hook |
+| `lib/brief-query.ts` | `BriefQuery` type, `toBriefQueryParams` (`date` / `latest=true`), `getTodayApiDate` |
+| `hooks/use-today-api-date.ts` | Hydration-safe browser "today" via `useSyncExternalStore` |
+| `components/providers/brief-selection-provider.tsx` | Shared date/Latest state, the three brief queries, and fallback status |
+| `components/layout/BriefDateWidget.tsx` | Sidebar date picker + Latest toggle, pinned above the Actions section |
+| `components/briefs/no-data-notice.tsx` | "No data for <date>" notice shown when a section falls back to latest |
 | `types/zodSchemas.ts` | Runtime validation of auth and chatbot responses |
 
 ## Open backend requests

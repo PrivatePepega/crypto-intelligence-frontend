@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { BriefDateWidget } from "@/components/layout/BriefDateWidget";
 import { cn } from "@/lib/utils";
 
 
@@ -113,8 +114,15 @@ export function Sidebar() {
         </nav>
       </div>
 
+      {/* Briefing date, pinned above the actions */}
+      {pathname === "/" && (
+        <div className="shrink-0 border-t p-4">
+          <BriefDateWidget />
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="border-t p-4">
+      {/* <div className="border-t p-4">
         <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Actions
         </p>
@@ -140,7 +148,7 @@ export function Sidebar() {
             2 hours ago
           </p>
         </div>
-      </div>
+      </div> */}
     </aside>
   )
 }

@@ -116,6 +116,48 @@ export const weatherBriefSchema = z.object({
   created_at: z.string().optional(),
 });
 
+// Weather observations and research
+export const weatherObservationSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  market_domain: z.string(),
+  type: z.string(),
+  observation: z.string(),
+  research_enabled: z.boolean(),
+  created_at: z.string(),
+});
+
+export const weatherResearchEntrySchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  market_domain: z.string(),
+  type: z.string(),
+  observation: z.string(),
+  research: z.string().catch(""),
+  created_at: z.string(),
+  observation_id: z.string(),
+});
+
+/**
+ * The research column stores a JSON string produced by the model. Fields fall
+ * back to safe defaults so one malformed value cannot break the whole row.
+ */
+export const weatherResearchDetailsSchema = z.object({
+  finding: z.string().catch(""),
+  importance: z.string().catch(""),
+  evidence: z.string().catch(""),
+  sources: z.array(z.string()).catch([]),
+  context: z.string().catch(""),
+  uncertainty: z.string().catch(""),
+  status: z.string().catch(""),
+});
+
+export const weatherObservationsResearchResponseSchema = z.object({
+  domains: z.array(z.string()),
+  observations: z.array(weatherObservationSchema),
+  research: z.array(weatherResearchEntrySchema),
+});
+
 // Climate brief schemas
 //
 // Each stored section is markdown-ish model output and may be null while a

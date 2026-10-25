@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { NoDataNotice } from "@/components/briefs/no-data-notice";
 import { BriefMarkdown } from "@/components/climate/brief-markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,12 @@ interface ClimateBriefSectionProps {
   brief: ClimateBrief | null | undefined;
   isLoading: boolean;
   error: unknown;
+  /** True when the selected date had no brief and the latest is shown. */
+  isFallback?: boolean;
+  /** Formatted selected date, used in the empty state. */
+  dateLabel?: string | null;
+  /** True when the request asked for the most recent brief instead of a date. */
+  latest?: boolean;
 }
 
 type ClimateSectionField =
@@ -122,6 +129,9 @@ export function ClimateBriefSection({
   brief,
   isLoading,
   error,
+  isFallback,
+  dateLabel,
+  latest,
 }: ClimateBriefSectionProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -191,9 +201,15 @@ export function ClimateBriefSection({
             <CalendarDays className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
 
             <div>
-              <p className="text-sm font-medium">No climate brief yet</p>
+              <p className="text-sm font-medium">
+                {latest || !dateLabel
+                  ? "No climate brief yet"
+                  : `No climate brief for ${dateLabel}`}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                The next generated brief will appear here once it is stored.
+                {latest || !dateLabel
+                  ? "The next generated brief will appear here once it is stored."
+                  : "Pick another date or switch to Latest to see the most recent brief."}
               </p>
             </div>
           </div>
@@ -274,6 +290,12 @@ export function ClimateBriefSection({
         </CardHeader>
 
         <CardContent>
+          {isFallback && (
+            <div className="mb-4">
+              <NoDataNotice dateLabel={dateLabel} />
+            </div>
+          )}
+
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] lg:gap-6">
             <div>
               <p className="mb-2 hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:block">
@@ -336,7 +358,7 @@ export function ClimateBriefSection({
 
                 <BriefMarkdown content={cleanBriefText(activeChapter.content)} />
 
-                <div className="mt-6 flex items-center justify-between gap-3 border-t pt-4">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                   <Button
                     type="button"
                     size="sm"
@@ -350,7 +372,7 @@ export function ClimateBriefSection({
                     Previous
                   </Button>
 
-                  <span className="text-xs text-muted-foreground">
+                  <span className="whitespace-nowrap text-xs text-muted-foreground">
                     {activeIndex + 1} / {chapters.length}
                   </span>
 
