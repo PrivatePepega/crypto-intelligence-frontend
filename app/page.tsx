@@ -1,7 +1,11 @@
 "use client";
 
+import { ClimateBriefSection } from "@/components/climate/climate-brief";
 import { IndicatorCard } from "@/components/indicators/indicator-card";
+import { WeatherBriefSection } from "@/components/weather/weather-brief";
+import { useClimateBrief } from "@/hooks/use-climate-brief";
 import { useIndicatorData } from "@/hooks/use-indicator-data";
+import { useWeatherBrief } from "@/hooks/use-weather-brief";
 import type { FetchIndicatorDataResponse } from "@/types";
 
 const macroIndicators = [
@@ -49,26 +53,20 @@ export default function Home() {
     historyLimit: 100,
   });
 
+  const {
+    data: weatherBrief,
+    isLoading: weatherLoading,
+    error: weatherError,
+  } = useWeatherBrief();
+
+  const {
+    data: climateBrief,
+    isLoading: climateLoading,
+    error: climateError,
+  } = useClimateBrief();
+
   const isLoading = macroLoading || cryptoLoading || weeklyMonthlyLoading || quarterlyLoading;
   const error = macroError || cryptoError || weeklyMonthlyError || quarterlyError;
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col flex-1 items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-        <p className="mt-4 text-muted-foreground">Loading indicators...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col flex-1 items-center justify-center text-center">
-        <p className="text-destructive">Failed to load indicators</p>
-        <p className="text-muted-foreground mt-1">{String(error)}</p>
-      </div>
-    );
-  }
 
   const renderSection = (title: string, description: string, data: FetchIndicatorDataResponse | undefined) => {
     const items = data?.indicators ?? [];
@@ -77,7 +75,7 @@ export default function Home() {
     return (
       <section className="mb-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold">{title}</h2>
+          <h3 className="text-xl font-bold">{title}</h3>
           <p className="text-muted-foreground mt-1">{description}</p>
         </div>
         <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -94,35 +92,74 @@ export default function Home() {
   return (
     <div className="flex flex-col flex-1 p-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Market Indicators</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Market Intelligence</h1>
         <p className="mt-2 text-muted-foreground">
-          Real-time economic and market indicators from FRED, CFTC, and alternative data sources.
+          Daily AI analysis and real-time economic and market indicators.
         </p>
       </div>
 
-      {renderSection(
-        "Key Rates & Spreads",
-        "Core Treasury yields, spreads, and volatility",
-        macroData
-      )}
+      <WeatherBriefSection
+        brief={weatherBrief}
+        isLoading={weatherLoading}
+        error={weatherError}
+      />
 
-      {renderSection(
-        "Weekly & Monthly Macro",
-        "Mortgage rates, employment, and housing data",
-        weeklyMonthlyData
-      )}
+      <ClimateBriefSection
+        brief={climateBrief}
+        isLoading={climateLoading}
+        error={climateError}
+      />
 
-      {renderSection(
-        "Crypto & Alternative",
-        "Fear & Greed, CFTC positioning",
-        cryptoData
-      )}
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-2xl font-bold">Market Indicators</h2>
+          <p className="mt-1 text-muted-foreground">
+            Real-time economic and market indicators from FRED, CFTC, and alternative data sources.
+          </p>
+        </div>
 
-      {renderSection(
-        "Quarterly Macro",
-        "GDP and quarterly indicators",
-        quarterlyData
-      )}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Loading indicators...</p>
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-destructive">Failed to load indicators</p>
+            <p className="text-muted-foreground mt-1">{String(error)}</p>
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <>
+            {renderSection(
+              "Key Rates & Spreads",
+              "Core Treasury yields, spreads, and volatility",
+              macroData
+            )}
+
+            {renderSection(
+              "Weekly & Monthly Macro",
+              "Mortgage rates, employment, and housing data",
+              weeklyMonthlyData
+            )}
+
+            {renderSection(
+              "Crypto & Alternative",
+              "Fear & Greed, CFTC positioning",
+              cryptoData
+            )}
+
+            {renderSection(
+              "Quarterly Macro",
+              "GDP and quarterly indicators",
+              quarterlyData
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

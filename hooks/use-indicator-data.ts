@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchIndicatorData, type FetchIndicatorDataParams } from "@/lib/indicator-api";
-import type { FetchIndicatorDataResponse, IndicatorDataItem } from "@/types";
+import type { IndicatorDataItem } from "@/types";
 
 interface UseIndicatorDataOptions extends FetchIndicatorDataParams {
   enabled?: boolean;
@@ -54,11 +54,90 @@ export function getCurrentValue(item: IndicatorDataItem | undefined): number | n
 }
 
 /**
- * Get the date from the current data
+ * Get the date of the current observation
  */
 export function getCurrentDate(item: IndicatorDataItem | undefined): string | null {
   if (!item?.current) return null;
-  return (item.current.date as string) ?? null;
+
+  const value = item.current.observed_at ?? item.current.date;
+  return typeof value === "string" ? value : null;
+}
+
+function getNumericKeys(row: Record<string, unknown> | null | undefined): string[] {
+  if (!row) return [];
+
+  return Object.keys(row).filter((key) => {
+    if (key === "date" || key === "series_id") return false;
+    const value = row[key];
+    return typeof value === "number" && Number.isFinite(value);
+  });
+}
+
+/**
+ * Resolves which historical column matches the series shown on the card.
+ * Current rows often name the column `current_value`, while history stores it
+ * as `value` (same for `current_bullish` -> `bullish`).
+ */
+export function getHistoricalSeriesKey(
+  item: IndicatorDataItem | undefined
+): string | null {
+  if (!item?.historical?.length) return null;
+
+  const historicalKeys = getNumericKeys(item.historical[0]);
+  if (historicalKeys.length === 0) return null;
+
+  const currentKey = getNumericKeys(item.current)[0];
+  if (currentKey) {
+    const strippedKey = currentKey.replace(/^current_/, "");
+    if (historicalKeys.includes(strippedKey)) return strippedKey;
+    if (historicalKeys.includes(currentKey)) return currentKey;
+  }
+
+  return historicalKeys[0] ?? null;
+}
+
+export interface HistoricalPoint {
+  time: string;
+  value: number;
+}
+
+function normalizeDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+  return match ? match[1] : null;
+}
+
+/**
+ * Builds an ascending, de-duplicated time series from an indicator's history.
+ * The latest `current` observation is appended when it is newer than the
+ * history so the chart ends on the same value the card displays.
+ */
+export function getHistoricalSeries(
+  item: IndicatorDataItem | undefined
+): HistoricalPoint[] {
+  const key = getHistoricalSeriesKey(item);
+  if (!item?.historical?.length || !key) return [];
+
+  const byDate = new Map<string, HistoricalPoint>();
+
+  for (const row of item.historical) {
+    const date = normalizeDate(row.date);
+    const value = row[key];
+
+    if (!date) continue;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+
+    byDate.set(date, { time: date, value });
+  }
+
+  const currentValue = getCurrentValue(item);
+  const observedAt = normalizeDate(item.current?.observed_at);
+
+  if (currentValue !== null && observedAt) {
+    byDate.set(observedAt, { time: observedAt, value: currentValue });
+  }
+
+  return [...byDate.values()].sort((a, b) => a.time.localeCompare(b.time));
 }
 
 /**
@@ -138,30 +217,92 @@ export function formatValue(value: number | null, unit: string): string {
  */
 export type NativeTimeUnit = "day" | "week" | "month" | "quarter";
 
-/**
- * Normalizes the native_time_unit from the indicator metadata.
- */
-export function normalizeTimeUnit(unit: string): NativeTimeUnit {
-  const lower = unit.toLowerCase();
-  if (lower.includes("day")) return "day";
-  if (lower.includes("week")) return "week";
-  if (lower.includes("month")) return "month";
-  if (lower.includes("quarter")) return "quarter";
-  return "day"; // default fallback
+function parseTimeUnit(unit: string): NativeTimeUnit | null {
+  const lower = unit.trim().toLowerCase();
+
+  // The API/catalogue encodes units as short codes (d/m/q) as well as words.
+  if (lower === "d" || lower.startsWith("day")) return "day";
+  if (lower === "w" || lower.startsWith("week")) return "week";
+  if (lower === "m" || lower.startsWith("month")) return "month";
+  if (lower === "q" || lower.startsWith("quarter")) return "quarter";
+
+  return null;
 }
 
 /**
- * Period configurations for moving averages by native time unit.
- * Each period specifies how many native periods to look back.
+ * Normalizes a time unit string from the indicator metadata.
+ */
+export function normalizeTimeUnit(unit: string): NativeTimeUnit {
+  return parseTimeUnit(unit) ?? "day"; // default fallback
+}
+
+/**
+ * Infers the cadence of a stored historical series from its row spacing.
+ * Used for indicators whose `historicalTimeUnit` is `o` (other/observed).
+ */
+function inferTimeUnitFromHistory(
+  item: IndicatorDataItem | undefined
+): NativeTimeUnit | null {
+  const historical = item?.historical;
+  if (!historical || historical.length < 2) return null;
+
+  const timestamps = historical
+    .map((row) => (typeof row.date === "string" ? Date.parse(row.date) : NaN))
+    .filter((time) => Number.isFinite(time));
+
+  if (timestamps.length < 2) return null;
+
+  const gaps: number[] = [];
+
+  // The latest observations describe the series' current cadence best.
+  for (let i = Math.max(1, timestamps.length - 12); i < timestamps.length; i += 1) {
+    gaps.push((timestamps[i] - timestamps[i - 1]) / 86_400_000);
+  }
+
+  gaps.sort((a, b) => a - b);
+  const medianGap = gaps[Math.floor(gaps.length / 2)];
+
+  if (medianGap <= 3) return "day";
+  if (medianGap <= 10) return "week";
+  if (medianGap <= 45) return "month";
+  return "quarter";
+}
+
+/**
+ * Resolves the unit of the stored historical rows.
+ *
+ * The API returns `historicalTimeUnit` as a short code:
+ * `d` = daily, `m` = monthly, `q` = quarterly, `o` = other/observed.
+ * For `o`, the cadence is inferred from the row spacing because those sources
+ * are not resampled (e.g. CFTC is weekly, the 2Y treasury series is weekly).
+ */
+export function resolveHistoricalTimeUnit(
+  item: IndicatorDataItem | undefined
+): NativeTimeUnit {
+  const nativeUnit = normalizeTimeUnit(item?.indicator.nativeTimeUnit ?? "day");
+  const historicalUnit = item?.indicator.historicalTimeUnit?.trim().toLowerCase();
+
+  if (!historicalUnit) return nativeUnit;
+
+  if (historicalUnit === "o") {
+    return inferTimeUnitFromHistory(item) ?? nativeUnit;
+  }
+
+  return parseTimeUnit(historicalUnit) ?? nativeUnit;
+}
+
+/**
+ * Period configurations for moving averages by historical time unit.
+ * Each period specifies how many historical rows to look back.
  */
 const MA_PERIODS_BY_UNIT: Record<string, Record<string, number>> = {
   day: {
-    "2W": 10,      // 2 weeks = 10 trading days
-    "1M": 21,      // 1 month ≈ 21 trading days
-    "3M": 63,      // 3 months ≈ 63 trading days
-    "6M": 126,     // 6 months ≈ 126 trading days
-    "12M": 252,    // 12 months ≈ 252 trading days
-    "24M": 504,    // 24 months ≈ 504 trading days
+    "2W": 14,      // 2 weeks = 14 days
+    "1M": 30,      // 1 month = 30 days
+    "3M": 90,      // 3 months = 90 days
+    "6M": 180,     // 6 months = 180 days
+    "12M": 360,    // 12 months = 360 days
+    "24M": 720,    // 24 months = 720 days
   },
   week: {
     "2W": 2,       // 2 weeks
@@ -209,8 +350,7 @@ export function calculateSMAForPeriod(
   periodKey: MAPeriodKey
 ): number | null {
   if (!item) return null;
-  const timeUnit = normalizeTimeUnit(item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
-  const period = getPeriodsForUnit(periodKey, item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
+  const period = getPeriodsForUnit(periodKey, resolveHistoricalTimeUnit(item));
   return calculateSMA(item, period);
 }
 
@@ -245,56 +385,64 @@ export function calculateAllMovingAverages(item: IndicatorDataItem | undefined):
   return result;
 }
 
+function subtractPeriods(
+  date: string,
+  unit: NativeTimeUnit,
+  periods: number
+): number | null {
+  const timestamp = Date.parse(date);
+  if (!Number.isFinite(timestamp)) return null;
+
+  const target = new Date(timestamp);
+
+  switch (unit) {
+    case "day":
+      target.setUTCDate(target.getUTCDate() - periods);
+      break;
+    case "week":
+      target.setUTCDate(target.getUTCDate() - periods * 7);
+      break;
+    case "month":
+      target.setUTCMonth(target.getUTCMonth() - periods);
+      break;
+    case "quarter":
+      target.setUTCMonth(target.getUTCMonth() - periods * 3);
+      break;
+  }
+
+  return target.getTime();
+}
+
+function getHistoricalValueAtOrBefore(
+  item: IndicatorDataItem,
+  key: string,
+  target: number
+): number | null {
+  let best: { time: number; value: number } | null = null;
+
+  for (const row of item.historical) {
+    if (typeof row.date !== "string") continue;
+
+    const time = Date.parse(row.date);
+    const value = row[key];
+
+    if (!Number.isFinite(time) || time > target) continue;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+
+    if (!best || time > best.time) {
+      best = { time, value };
+    }
+  }
+
+  return best?.value ?? null;
+}
+
 /**
- * Calculates net change (current - value at period ago) for each period based on native frequency.
+ * Calculates net change (current - value at period ago) for each period.
  */
-export function calculateAllNetChanges(item: IndicatorDataItem | undefined): Record<MAPeriodKey, number | null> {
-  const currentValue = getCurrentValue(item);
-  if (currentValue === null) {
-    return {
-      "2W": null,
-      "1M": null,
-      "3M": null,
-      "6M": null,
-      "12M": null,
-      "24M": null,
-    };
-  }
-
-  if (!item?.historical || item.historical.length === 0) {
-    return {
-      "2W": null,
-      "1M": null,
-      "3M": null,
-      "6M": null,
-      "12M": null,
-      "24M": null,
-    };
-  }
-
-  const timeUnit = normalizeTimeUnit(item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
-  const values = item.historical
-    .map((row) => {
-      const sample = item.historical![0];
-      const numericKeys = Object.keys(sample).filter(
-        (key) => key !== "date" && key !== "series_id" && typeof sample[key] === "number"
-      );
-      const key = numericKeys[0];
-      return row[key] as number;
-    })
-    .filter((v) => typeof v === "number" && !isNaN(v));
-
-  if (values.length === 0) {
-    return {
-      "2W": null,
-      "1M": null,
-      "3M": null,
-      "6M": null,
-      "12M": null,
-      "24M": null,
-    };
-  }
-
+export function calculateAllNetChanges(
+  item: IndicatorDataItem | undefined
+): Record<MAPeriodKey, number | null> {
   const result: Record<MAPeriodKey, number | null> = {
     "2W": null,
     "1M": null,
@@ -305,14 +453,7 @@ export function calculateAllNetChanges(item: IndicatorDataItem | undefined): Rec
   };
 
   for (const period of PERIOD_ORDER) {
-    const periodNum = getPeriodsForUnit(period, item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
-    const index = values.length - 1 - periodNum;
-    if (index >= 0) {
-      const previousValue = values[index];
-      if (typeof previousValue === "number" && !isNaN(previousValue)) {
-        result[period] = currentValue - previousValue;
-      }
-    }
+    result[period] = calculateNetChangeForPeriod(item, period);
   }
 
   return result;
@@ -320,6 +461,8 @@ export function calculateAllNetChanges(item: IndicatorDataItem | undefined): Rec
 
 /**
  * Calculates net change (current - value at period ago) for a specific period.
+ * The comparison row is selected by date so it stays correct when the history
+ * already ends before the current observation.
  */
 export function calculateNetChangeForPeriod(
   item: IndicatorDataItem | undefined,
@@ -328,9 +471,6 @@ export function calculateNetChangeForPeriod(
   const currentValue = getCurrentValue(item);
   if (currentValue === null || !item?.historical || item.historical.length === 0) return null;
 
-  const timeUnit = normalizeTimeUnit(item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
-  const periodNum = getPeriodsForUnit(periodKey, item.indicator.historicalTimeUnit || item.indicator.nativeTimeUnit);
-
   const sample = item.historical[0];
   const numericKeys = Object.keys(sample).filter(
     (key) => key !== "date" && key !== "series_id" && typeof sample[key] === "number"
@@ -338,19 +478,27 @@ export function calculateNetChangeForPeriod(
   if (numericKeys.length === 0) return null;
   const key = numericKeys[0];
 
+  const unit = resolveHistoricalTimeUnit(item);
+  const periods = getPeriodsForUnit(periodKey, unit);
+  const currentDate = getCurrentDate(item);
+
+  if (currentDate) {
+    const target = subtractPeriods(currentDate, unit, periods);
+    if (target === null) return null;
+
+    const previousValue = getHistoricalValueAtOrBefore(item, key, target);
+    return previousValue === null ? null : currentValue - previousValue;
+  }
+
+  // Fallback when the current observation has no date: compare row offsets.
   const values = item.historical
     .map((row) => row[key] as number)
     .filter((v) => typeof v === "number" && !isNaN(v));
 
-  if (values.length === 0) return null;
-
-  const index = values.length - 1 - periodNum;
+  const index = values.length - 1 - periods;
   if (index < 0) return null;
 
-  const previousValue = values[index];
-  if (typeof previousValue !== "number" || isNaN(previousValue)) return null;
-
-  return currentValue - previousValue;
+  return currentValue - values[index];
 }
 
 /**

@@ -84,3 +84,51 @@ export const fetchIndicatorDataRequestSchema = z.object({
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   historyLimit: z.number().int().min(1).max(10000).optional(),
 });
+
+// Weather brief schemas
+//
+// The brief body is model-generated text stored as JSONB, so fields fall back
+// to safe defaults instead of failing the whole response. The page renders the
+// strings as plain text; nothing here is trusted as markup or data.
+export const weatherBriefSectionSchema = z.object({
+  heading: z.string().catch(""),
+  body: z.string().catch(""),
+  key_figures: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .catch({}),
+});
+
+export const weatherHumanBriefSchema = z.object({
+  date: z.string().catch(""),
+  title: z.string().catch(""),
+  executive_summary: z.string().catch(""),
+  sections: z.array(weatherBriefSectionSchema).catch([]),
+  market_outlook: z.string().catch(""),
+  key_takeaways: z.array(z.string()).catch([]),
+  uncertainties: z.array(z.string()).catch([]),
+  upcoming_catalysts: z.array(z.string()).catch([]),
+});
+
+export const weatherBriefSchema = z.object({
+  brief_date: z.string(),
+  domain: z.string().catch(""),
+  human_brief: weatherHumanBriefSchema,
+  created_at: z.string().optional(),
+});
+
+// Climate brief schemas
+//
+// Each stored section is markdown-ish model output and may be null while a
+// brief is being assembled, so every section falls back to `null`.
+const climateBriefSectionSchema = z.string().nullish().catch(null);
+
+export const climateBriefSchema = z.object({
+  date: z.string(),
+  human_brief_global_overview: climateBriefSectionSchema,
+  human_brief_macro_market_regime: climateBriefSectionSchema,
+  human_brief_sector_conditions: climateBriefSectionSchema,
+  human_brief_important_stories_narratives: climateBriefSectionSchema,
+  human_brief_trends_capital_direction: climateBriefSectionSchema,
+  human_brief_outlook_risks_uncertainties: climateBriefSectionSchema,
+  created_at: z.string().optional(),
+});
