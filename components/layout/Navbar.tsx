@@ -8,17 +8,17 @@ export function Navbar() {
   const [search, setSearch] = useState("")
 
   return (
-    <nav className="flex h-16 items-center border-b bg-background px-6">
+    <nav className="flex h-16 items-center border-b bg-background px-4 md:px-6">
       {/* Logo */}
       <Link href="/">
-        <div className="mr-8 flex items-center">
+        <div className="mr-4 flex items-center md:mr-8">
           <span className="text-xl font-bold">CryptoIntel</span>
         </div>
       </Link>
 
 
       {/* Search */}
-      <div className="relative w-80">
+      <div className="relative hidden w-80 md:block">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
         <input
@@ -47,24 +47,13 @@ export function Navbar() {
       </div>
 
       {/* Navigation */}
-      <div className="ml-auto flex items-center gap-2">
-        <Link href="/world">
-          <button className="rounded-md px-4 py-2 text-sm font-medium hover:bg-muted">
-            World
-          </button>
-        </Link>
-
-        <Link href="/crypto">
-          <button className="rounded-md px-4 py-2 text-sm font-medium hover:bg-muted">
-            Crypto
-          </button>
-        </Link>
+      <div className="ml-auto flex items-center gap-1">
 
 
         <Link
           href="/user"
           aria-label="Your account"
-          className="ml-2 rounded-md p-2 hover:bg-muted"
+          className="ml-1 rounded-md p-2 hover:bg-muted"
         >
           <User className="size-5" />
         </Link>

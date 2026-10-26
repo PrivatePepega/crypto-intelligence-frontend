@@ -1,172 +1,158 @@
 "use client";
 
+import { useState } from "react";
+import { CalendarDays } from "lucide-react";
+
 import { ClimateBriefSection } from "@/components/climate/climate-brief";
-import { IndicatorCard } from "@/components/indicators/indicator-card";
+import { GeneralSection } from "@/components/general/general-section";
+import { IndicatorExplorer } from "@/components/general/indicator-explorer";
 import { useBriefSelection } from "@/components/providers/brief-selection-provider";
+import { Badge } from "@/components/ui/badge";
 import { ObservationsResearchSection } from "@/components/weather/observations-research";
+import { WeatherDomainTabs } from "@/components/weather/weather-domain-tabs";
 import { WeatherBriefSection } from "@/components/weather/weather-brief";
-import { useIndicatorData } from "@/hooks/use-indicator-data";
-import { formatBriefDate } from "@/lib/brief-format";
-import type { FetchIndicatorDataResponse } from "@/types";
-
-const macroIndicators = [
-  "ten_year_treasury_yield",
-  "two_year_treasury_yield",
-  "three_m_treasury",
-  "ten_two_year_yield_spread",
-  "ten_year_breakeven_inflation",
-  "vix",
-];
-
-const cryptoIndicators = [
-  "alternative_crypto_fear_greed",
-  "cftc_bitcoin",
-];
-
-const macroWeeklyMonthly = [
-  "mortgage_rate",
-  "average_hourly_earnings",
-  "building_permits",
-];
-
-const quarterlyIndicators = [
-  "real_gdp_growth",
-];
+import { cleanBriefText, formatBriefDate } from "@/lib/brief-format";
+import { WEATHER_DOMAINS } from "@/lib/weather-domains";
 
 export default function Home() {
-  const { weather, climate, observations, date, latest } = useBriefSelection();
+  const {
+    weatherBriefs,
+    weatherDomain,
+    setWeatherDomain,
+    climate,
+    observations,
+    date,
+    latest,
+  } = useBriefSelection();
   const briefDateLabel = formatBriefDate(date ?? undefined);
 
-  const { data: macroData, isLoading: macroLoading, error: macroError } = useIndicatorData({
-    indicators: macroIndicators,
-    historyLimit: 250,
-  });
+  const [activeObservationDomain, setActiveObservationDomain] = useState<
+    string
+  >(WEATHER_DOMAINS[0].id);
 
-  const { data: cryptoData, isLoading: cryptoLoading, error: cryptoError } = useIndicatorData({
-    indicators: cryptoIndicators,
-    historyLimit: 250,
-  });
+  // All six domains arrive in one response, so switching a tab is instant.
+  const briefs = weatherBriefs.data?.data ?? [];
+  const weatherBrief =
+    briefs.find((brief) => brief.domain === weatherDomain) ?? null;
+  const macroBrief = briefs.find((brief) => brief.domain === "macro") ?? null;
+  const climateBrief = climate.data?.data ?? null;
+  const observationsData = observations.data?.data ?? undefined;
 
-  const { data: weeklyMonthlyData, isLoading: weeklyMonthlyLoading, error: weeklyMonthlyError } = useIndicatorData({
-    indicators: macroWeeklyMonthly,
-    historyLimit: 250,
-  });
+  const activeWeatherDomain =
+    WEATHER_DOMAINS.find((domain) => domain.id === weatherDomain) ??
+    WEATHER_DOMAINS[0];
+  const isMacroWeather = weatherDomain === "macro";
 
-  const { data: quarterlyData, isLoading: quarterlyLoading, error: quarterlyError } = useIndicatorData({
-    indicators: quarterlyIndicators,
-    historyLimit: 100,
-  });
-
-  const isLoading = macroLoading || cryptoLoading || weeklyMonthlyLoading || quarterlyLoading;
-  const error = macroError || cryptoError || weeklyMonthlyError || quarterlyError;
-
-  const renderSection = (title: string, description: string, data: FetchIndicatorDataResponse | undefined) => {
-    const items = data?.indicators ?? [];
-    if (items.length === 0) return null;
-
-    return (
-      <section className="mb-8">
-        <div className="mb-6">
-          <h3 className="text-xl font-bold">{title}</h3>
-          <p className="text-muted-foreground mt-1">{description}</p>
-        </div>
-        <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => (
-            <div key={item.indicator.id} className="min-w-0">
-              <IndicatorCard item={item} />
-            </div>
-          ))}
-        </div>
-      </section>
-    );
-  };
+  // The stored climate brief currently has no Global Overview chapter. The
+  // macro brief's executive summary is the closest deterministic fallback.
+  const overviewFallback = cleanBriefText(
+    macroBrief?.human_brief.executive_summary ?? ""
+  );
 
   return (
-    <div className="flex flex-col flex-1 p-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Market Intelligence</h1>
-        <p className="mt-2 text-muted-foreground">
-          Daily AI analysis and real-time economic and market indicators.
-        </p>
-      </div>
+    <div className="flex flex-1 flex-col gap-4">
+      <header className="mb-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">
+            General intelligence
+          </h1>
 
-      <WeatherBriefSection
-        brief={weather.data?.data ?? null}
-        isLoading={weather.isLoading}
-        error={weather.error}
-        isFallback={weather.data?.isFallback ?? false}
-        dateLabel={briefDateLabel}
-        latest={latest}
-      />
-
-      <ClimateBriefSection
-        brief={climate.data?.data ?? null}
-        isLoading={climate.isLoading}
-        error={climate.error}
-        isFallback={climate.data?.isFallback ?? false}
-        dateLabel={briefDateLabel}
-        latest={latest}
-      />
-
-      <ObservationsResearchSection
-        data={observations.data?.data ?? undefined}
-        isLoading={observations.isLoading}
-        error={observations.error}
-        isFallback={observations.data?.isFallback ?? false}
-        dateLabel={briefDateLabel}
-        latest={latest}
-      />
-
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold">Market Indicators</h2>
-          <p className="mt-1 text-muted-foreground">
-            Real-time economic and market indicators from FRED, CFTC, and alternative data sources.
-          </p>
+          <Badge variant="outline" className="gap-1">
+            <CalendarDays className="size-3" />
+            {latest ? "Latest available" : briefDateLabel ?? "Today"}
+          </Badge>
         </div>
 
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-            <p className="mt-4 text-muted-foreground">Loading indicators...</p>
-          </div>
-        )}
+        <p className="mt-2 max-w-4xl text-muted-foreground">
+          The broader economic, political, technological, and industrial
+          environment that affects markets. Expand a section to read it, and
+          change the briefing date in the sidebar to load another snapshot.
+        </p>
+      </header>
 
-        {!isLoading && error && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-destructive">Failed to load indicators</p>
-            <p className="text-muted-foreground mt-1">{String(error)}</p>
-          </div>
-        )}
+      <GeneralSection
+        index={1}
+        title="Climate brief"
+        description="The global overview, macro and market regime, important stories and narratives, trends and capital direction, and the outlook, risks, and uncertainties."
+      >
+        <ClimateBriefSection
+          brief={climateBrief}
+          isLoading={climate.isLoading}
+          error={climate.error}
+          isFallback={climate.data?.isFallback ?? false}
+          dateLabel={briefDateLabel}
+          latest={latest}
+          showHeading={false}
+          includeSectorConditions={false}
+          overviewFallback={overviewFallback}
+          badgeLabel="Climate brief"
+          cardTitle="Climate intelligence brief"
+          cardDescription="AI-generated synthesis of the latest climate intelligence set, organized into the core briefing chapters. Treat it as interpretation, not live market data."
+        />
+      </GeneralSection>
 
-        {!isLoading && !error && (
-          <>
-            {renderSection(
-              "Key Rates & Spreads",
-              "Core Treasury yields, spreads, and volatility",
-              macroData
-            )}
+      <GeneralSection
+        index={2}
+        title="Weather briefs"
+        description="Six domain-specific briefs: macro, financial markets, geopolitics, AI and technology, commodities and energy, and crypto. Pick a domain to read its market regime, key sections, and outlook."
+      >
+        <div className="space-y-4">
+          <WeatherDomainTabs
+            activeDomain={weatherDomain}
+            onDomainChange={setWeatherDomain}
+          />
 
-            {renderSection(
-              "Weekly & Monthly Macro",
-              "Mortgage rates, employment, and housing data",
-              weeklyMonthlyData
-            )}
+          <WeatherBriefSection
+            brief={weatherBrief}
+            isLoading={weatherBriefs.isLoading}
+            error={weatherBriefs.error}
+            isFallback={weatherBriefs.data?.isFallback ?? false}
+            dateLabel={briefDateLabel}
+            latest={latest}
+            showHeading={false}
+            showExecutiveSummary={!isMacroWeather}
+            cardTitle={
+              isMacroWeather
+                ? "Macro & market brief"
+                : `${activeWeatherDomain.label} brief`
+            }
+            cardDescription={
+              isMacroWeather
+                ? "The latest stored macro brief behind this snapshot. Its executive summary opens the Climate brief above."
+                : `What Weather flagged in ${activeWeatherDomain.label.toLowerCase()} on this briefing date: the market regime, key sections, and market outlook.`
+            }
+          />
+        </div>
+      </GeneralSection>
 
-            {renderSection(
-              "Crypto & Alternative",
-              "Fear & Greed, CFTC positioning",
-              cryptoData
-            )}
+      <GeneralSection
+        index={3}
+        title="Indicators"
+        description="The full indicator catalogue, split by domain and then by category, with the latest stored reading for each indicator."
+      >
+        <IndicatorExplorer />
+      </GeneralSection>
 
-            {renderSection(
-              "Quarterly Macro",
-              "GDP and quarterly indicators",
-              quarterlyData
-            )}
-          </>
-        )}
-      </div>
+      <GeneralSection
+        index={4}
+        id="latest-observations"
+        title="Observations and research"
+        description="Recent observations from Weather, research generated from important observations, and links to the source evidence behind that research."
+      >
+        <ObservationsResearchSection
+          data={observationsData}
+          isLoading={observations.isLoading}
+          error={observations.error}
+          isFallback={observations.data?.isFallback ?? false}
+          dateLabel={briefDateLabel}
+          latest={latest}
+          showHeading={false}
+          activeDomain={activeObservationDomain}
+          onDomainChange={setActiveObservationDomain}
+          cardTitle="Latest observations and research"
+          cardDescription="Stored observations and the research generated for them. Select a domain to explore its data."
+        />
+      </GeneralSection>
     </div>
   );
 }

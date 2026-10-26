@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ChevronDown,
   Database,
+  ExternalLink,
   Eye,
   FlaskConical,
   Sparkles,
@@ -22,14 +23,21 @@ import {
 } from "@/components/ui/card";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { formatBriefDate, formatBriefUpdatedAt } from "@/lib/brief-format";
+import {
+  RESEARCH_STATUS_LABELS,
+  formatResearchToken,
+  formatSourceLabel,
+  getResearchStatusClass,
+  isHttpUrl,
+  parseResearchDetails,
+  sortByMostRecent,
+} from "@/lib/research";
 import { cn } from "@/lib/utils";
 import { WEATHER_DOMAINS } from "@/lib/weather-domains";
 import type {
   WeatherObservationsResearchResponse,
-  WeatherResearchDetails,
   WeatherResearchEntry,
 } from "@/types";
-import { weatherResearchDetailsSchema } from "@/types/zodSchemas";
 
 interface ObservationsResearchSectionProps {
   data: WeatherObservationsResearchResponse | undefined;
@@ -41,13 +49,16 @@ interface ObservationsResearchSectionProps {
   dateLabel?: string | null;
   /** True when the request asked for the most recent data instead of a date. */
   latest?: boolean;
+  /** Render the section heading above the card. */
+  showHeading?: boolean;
+  sectionTitle?: string;
+  sectionDescription?: string;
+  cardTitle?: string;
+  cardDescription?: string;
+  /** Controlled domain selection; omit to let the section manage it. */
+  activeDomain?: string;
+  onDomainChange?: (domain: string) => void;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  supported: "Supported",
-  partially_supported: "Partially supported",
-  unconfirmed: "Unconfirmed",
-};
 
 function groupByDomain<T extends { market_domain: string }>(
   rows: T[]
@@ -67,36 +78,6 @@ function groupByDomain<T extends { market_domain: string }>(
   return groups;
 }
 
-function formatToken(value: string): string {
-  return value
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function getStatusClass(status: string): string {
-  switch (status) {
-    case "supported":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
-    case "partially_supported":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400";
-    case "unconfirmed":
-      return "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-400";
-    default:
-      return "border-border bg-muted/40 text-muted-foreground";
-  }
-}
-
-function parseResearchDetails(raw: string): WeatherResearchDetails | null {
-  try {
-    const parsed = weatherResearchDetailsSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
 function ResearchField({ label, value }: { label: string; value: string }) {
   if (!value) return null;
 
@@ -112,24 +93,42 @@ function ResearchField({ label, value }: { label: string; value: string }) {
 }
 
 function SourceList({ sources }: { sources: string[] }) {
-  if (sources.length === 0) return null;
+  const uniqueSources = [...new Set(sources.map((source) => source.trim()))].filter(
+    Boolean
+  );
+
+  if (uniqueSources.length === 0) return null;
 
   return (
     <div>
       <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Sources
+        Sources & evidence
       </h4>
 
       <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {sources.map((source, index) => (
-          <Badge
-            key={`${source}-${index}`}
-            variant="outline"
-            className="max-w-full whitespace-normal text-[10px]"
-          >
-            {source}
-          </Badge>
-        ))}
+        {uniqueSources.map((source, index) =>
+          isHttpUrl(source) ? (
+            <a
+              key={`${source}-${index}`}
+              href={source}
+              target="_blank"
+              rel="noreferrer noopener"
+              title={source}
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-700 transition-colors hover:bg-sky-500/20 dark:text-sky-400"
+            >
+              <ExternalLink className="size-3 shrink-0" />
+              <span className="truncate">{formatSourceLabel(source)}</span>
+            </a>
+          ) : (
+            <Badge
+              key={`${source}-${index}`}
+              variant="outline"
+              className="max-w-full whitespace-normal text-[10px]"
+            >
+              {source}
+            </Badge>
+          )
+        )}
       </div>
     </div>
   );
@@ -154,15 +153,15 @@ function ResearchCard({
       <summary className="cursor-pointer list-none p-4 [&::-webkit-details-marker]:hidden">
         <span className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className="text-[10px]">
-            {formatToken(entry.type)}
+            {formatResearchToken(entry.type)}
           </Badge>
 
           {status && (
             <Badge
               variant="outline"
-              className={cn("text-[10px]", getStatusClass(status))}
+              className={cn("text-[10px]", getResearchStatusClass(status))}
             >
-              {STATUS_LABELS[status] ?? formatToken(status)}
+              {RESEARCH_STATUS_LABELS[status] ?? formatResearchToken(status)}
             </Badge>
           )}
 
@@ -212,14 +211,17 @@ function BriefStateCard({ children }: { children: ReactNode }) {
   return <Card className="p-6">{children}</Card>;
 }
 
-function SectionHeading() {
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="mb-6">
-      <h2 className="text-2xl font-bold">Observations & Research</h2>
-      <p className="mt-1 text-muted-foreground">
-        Stored market observations and the research generated for them, grouped
-        by domain.
-      </p>
+      <h2 className="text-2xl font-bold">{title}</h2>
+      <p className="mt-1 text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -231,10 +233,27 @@ export function ObservationsResearchSection({
   isFallback,
   dateLabel,
   latest,
+  showHeading = true,
+  sectionTitle = "Observations & Research",
+  sectionDescription = "Stored market observations and the research generated for them, grouped by domain.",
+  cardTitle = "Daily Observations",
+  cardDescription = "Stored observations and the research generated for them. Select a domain to explore its data.",
+  activeDomain: controlledDomain,
+  onDomainChange,
 }: ObservationsResearchSectionProps) {
-  const [activeDomain, setActiveDomain] = useState<string>(
+  const [internalDomain, setInternalDomain] = useState<string>(
     WEATHER_DOMAINS[0].id
   );
+
+  const activeDomain = controlledDomain ?? internalDomain;
+  const setActiveDomain = onDomainChange ?? setInternalDomain;
+
+  const heading = showHeading ? (
+    <SectionHeading
+      title={sectionTitle}
+      description={sectionDescription}
+    />
+  ) : null;
 
   const observationsByDomain = useMemo(
     () => groupByDomain(data?.observations ?? []),
@@ -275,7 +294,7 @@ export function ObservationsResearchSection({
   if (isLoading) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <div
@@ -295,7 +314,7 @@ export function ObservationsResearchSection({
   if (error) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <p className="text-sm font-medium text-destructive">
@@ -312,7 +331,7 @@ export function ObservationsResearchSection({
   if (!data || (data.observations.length === 0 && data.research.length === 0)) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <div className="flex items-start gap-3">
@@ -336,8 +355,12 @@ export function ObservationsResearchSection({
     );
   }
 
-  const observations = observationsByDomain.get(activeDomain) ?? [];
-  const research = researchByDomain.get(activeDomain) ?? [];
+  const observations = sortByMostRecent(
+    observationsByDomain.get(activeDomain) ?? []
+  );
+  const research = sortByMostRecent(
+    researchByDomain.get(activeDomain) ?? []
+  );
 
   // Research rows carry their own id and point back to the observation they
   // explain. The anchor on each research card uses the research id, so this map
@@ -359,7 +382,7 @@ export function ObservationsResearchSection({
 
   return (
     <section>
-      <SectionHeading />
+      {heading}
 
       <Card>
         <CardHeader>
@@ -384,12 +407,11 @@ export function ObservationsResearchSection({
           </div>
 
           <CardTitle className="mt-1 text-xl leading-snug sm:text-2xl">
-            Daily Observations
+            {cardTitle}
           </CardTitle>
 
           <CardDescription>
-            Stored observations and the research generated for them. Select a
-            domain to explore its data.
+            {cardDescription}
           </CardDescription>
 
           <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -451,42 +473,13 @@ export function ObservationsResearchSection({
           <div>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                <FlaskConical className="size-3.5" />
-                Research
-              </h3>
-
-              <span className="text-xs text-muted-foreground">
-                {research.length} item{research.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            {research.length > 0 ? (
-              <div className="mt-3 grid items-start gap-3 xl:grid-cols-2">
-                {research.map((entry) => (
-                  <ResearchCard
-                    key={entry.id}
-                    entry={entry}
-                    showDate={showDates}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                No research was generated for this domain.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 <Eye className="size-3.5" />
-                Observations
+                Recent observations
               </h3>
 
               <span className="text-xs text-muted-foreground">
                 {observations.length} item
-                {observations.length === 1 ? "" : "s"}
+                {observations.length === 1 ? "" : "s"} · collected by Weather
               </span>
             </div>
 
@@ -503,7 +496,7 @@ export function ObservationsResearchSection({
                     >
                       <div className="flex flex-wrap items-center gap-1.5 sm:w-44 sm:shrink-0">
                         <Badge variant="outline" className="text-[10px]">
-                          {formatToken(observation.type)}
+                          {formatResearchToken(observation.type)}
                         </Badge>
 
                         {showDates && (
@@ -550,6 +543,35 @@ export function ObservationsResearchSection({
             ) : (
               <p className="mt-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                 No observations were stored for this domain.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <FlaskConical className="size-3.5" />
+                Research generated from observations
+              </h3>
+
+              <span className="text-xs text-muted-foreground">
+                {research.length} item{research.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {research.length > 0 ? (
+              <div className="mt-3 grid items-start gap-3 xl:grid-cols-2">
+                {research.map((entry) => (
+                  <ResearchCard
+                    key={entry.id}
+                    entry={entry}
+                    showDate={showDates}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                No research was generated for this domain.
               </p>
             )}
           </div>

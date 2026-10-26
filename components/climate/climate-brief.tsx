@@ -39,6 +39,18 @@ interface ClimateBriefSectionProps {
   dateLabel?: string | null;
   /** True when the request asked for the most recent brief instead of a date. */
   latest?: boolean;
+  /** Render the section heading above the card. */
+  showHeading?: boolean;
+  sectionTitle?: string;
+  sectionDescription?: string;
+  /** Override the card title and description. */
+  cardTitle?: string;
+  cardDescription?: string;
+  badgeLabel?: string;
+  /** Sector Conditions is not part of the General window's brief outline. */
+  includeSectorConditions?: boolean;
+  /** Fills Global Overview when the stored field is empty. */
+  overviewFallback?: string;
 }
 
 type ClimateSectionField =
@@ -92,12 +104,29 @@ const CHAPTER_DEFINITIONS: ReadonlyArray<{
   },
 ];
 
-function getChapters(brief: ClimateBrief): ClimateChapter[] {
-  return CHAPTER_DEFINITIONS.map((definition) => ({
-    key: definition.key,
-    title: definition.title,
-    content: brief[definition.field] ?? "",
-  })).filter((chapter) => chapter.content.trim().length > 0);
+function getChapters(
+  brief: ClimateBrief,
+  includeSectorConditions: boolean,
+  overviewFallback: string
+): ClimateChapter[] {
+  return CHAPTER_DEFINITIONS.filter(
+    (definition) =>
+      includeSectorConditions || definition.key !== "sectors"
+  )
+    .map((definition) => {
+      const stored = brief[definition.field] ?? "";
+      const content =
+        definition.key === "overview" && !stored.trim()
+          ? overviewFallback
+          : stored;
+
+      return {
+        key: definition.key,
+        title: definition.title,
+        content,
+      };
+    })
+    .filter((chapter) => chapter.content.trim().length > 0);
 }
 
 function countWords(text: string): number {
@@ -113,14 +142,17 @@ function BriefStateCard({ children }: { children: ReactNode }) {
   return <Card className="p-6">{children}</Card>;
 }
 
-function SectionHeading() {
+function SectionHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="mb-6">
-      <h2 className="text-2xl font-bold">Climate Brief</h2>
-      <p className="mt-1 text-muted-foreground">
-        Long-form climate intelligence across the macro regime, sectors, capital
-        flows, and risks.
-      </p>
+      <h2 className="text-2xl font-bold">{title}</h2>
+      <p className="mt-1 text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -132,10 +164,31 @@ export function ClimateBriefSection({
   isFallback,
   dateLabel,
   latest,
+  showHeading = true,
+  sectionTitle = "Climate Brief",
+  sectionDescription = "Long-form climate intelligence across the macro regime, sectors, capital flows, and risks.",
+  cardTitle = "Climate Intelligence Brief",
+  cardDescription = "AI-generated synthesis of the latest climate intelligence set. Treat it as interpretation, not live market data.",
+  badgeLabel = "Climate brief",
+  includeSectorConditions = true,
+  overviewFallback = "",
 }: ClimateBriefSectionProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const chapters = useMemo(() => (brief ? getChapters(brief) : []), [brief]);
+  const chapters = useMemo(
+    () =>
+      brief
+        ? getChapters(brief, includeSectorConditions, overviewFallback)
+        : [],
+    [brief, includeSectorConditions, overviewFallback]
+  );
+
+  const heading = showHeading ? (
+    <SectionHeading
+      title={sectionTitle}
+      description={sectionDescription}
+    />
+  ) : null;
 
   const activeChapter =
     chapters.find((chapter) => chapter.key === selectedKey) ?? chapters[0];
@@ -157,7 +210,7 @@ export function ClimateBriefSection({
   if (isLoading) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <div
@@ -177,7 +230,7 @@ export function ClimateBriefSection({
   if (error) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <p className="text-sm font-medium text-destructive">
@@ -194,7 +247,7 @@ export function ClimateBriefSection({
   if (!brief) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <div className="flex items-start gap-3">
@@ -221,7 +274,7 @@ export function ClimateBriefSection({
   if (!activeChapter) {
     return (
       <section>
-        <SectionHeading />
+        {heading}
 
         <BriefStateCard>
           <p className="text-sm font-medium">This brief has no content yet</p>
@@ -244,14 +297,14 @@ export function ClimateBriefSection({
 
   return (
     <section>
-      <SectionHeading />
+      {heading}
 
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="gap-1">
               <Sparkles className="size-3" />
-              Climate brief
+              {badgeLabel}
             </Badge>
 
             {displayDate && (
@@ -269,12 +322,11 @@ export function ClimateBriefSection({
           </div>
 
           <CardTitle className="mt-1 text-xl leading-snug sm:text-2xl">
-            Climate Intelligence Brief
+            {cardTitle}
           </CardTitle>
 
           <CardDescription>
-            AI-generated synthesis of the latest climate intelligence set. Treat
-            it as interpretation, not live market data.
+            {cardDescription}
           </CardDescription>
 
           <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">

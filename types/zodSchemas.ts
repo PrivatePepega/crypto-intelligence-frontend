@@ -85,6 +85,23 @@ export const fetchIndicatorDataRequestSchema = z.object({
   historyLimit: z.number().int().min(1).max(10000).optional(),
 });
 
+/**
+ * The public catalogue behind the indicator explorer. It is the source of
+ * truth for which domain and category each indicator belongs to.
+ */
+export const indicatorCatalogueEntrySchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  seriesId: z.string(),
+  domain: z.string().min(1),
+  category: z.string().min(1),
+});
+
+export const indicatorCatalogueResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
+  indicators: z.array(indicatorCatalogueEntrySchema),
+});
+
 // Weather brief schemas
 //
 // The brief body is model-generated text stored as JSONB, so fields fall back
@@ -109,11 +126,39 @@ export const weatherHumanBriefSchema = z.object({
   upcoming_catalysts: z.array(z.string()).catch([]),
 });
 
+/**
+ * `human_brief` is JSONB. The API may return it as an object or as a JSON
+ * string, so parse the string form before validating the brief body.
+ */
+const weatherHumanBriefPayloadSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}, weatherHumanBriefSchema);
+
 export const weatherBriefSchema = z.object({
+  id: z.string().optional(),
   brief_date: z.string(),
   domain: z.string().catch(""),
-  human_brief: weatherHumanBriefSchema,
+  human_brief: weatherHumanBriefPayloadSchema,
   created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+/**
+ * `GET /weather/brief?date=YYYY-MM-DD` returns every domain's brief for that
+ * day, plus the date and pagination metadata the backend applied.
+ */
+export const weatherBriefsResponseSchema = z.object({
+  briefs: z.array(weatherBriefSchema),
+  // Informational metadata; empty-day responses may omit it.
+  date: z.string().nullish(),
+  limit: z.coerce.number().nullish(),
+  total: z.coerce.number().nullish(),
 });
 
 // Weather observations and research

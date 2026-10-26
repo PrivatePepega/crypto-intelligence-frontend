@@ -139,8 +139,8 @@ export function AreaChart({
           labelBackgroundColor: AXIS_TEXT_COLOR,
         },
       },
-      handleScroll: { mouseWheel: false, pressedMouseMove: true },
-      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
       localization: { priceFormatter: formatPrice },
     });
 

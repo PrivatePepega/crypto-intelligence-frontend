@@ -4,31 +4,31 @@ import type { BriefQuery } from "@/lib/brief-query";
 import { toBriefQueryParams } from "@/lib/brief-query";
 import { fetchData, postData } from "@/lib/fetch-util";
 import type {
-  WeatherBrief,
+  WeatherBriefsResponse,
   WeatherObservationsResearchResponse,
 } from "@/types";
 import {
-  weatherBriefSchema,
+  weatherBriefsResponseSchema,
   weatherObservationsResearchResponseSchema,
 } from "@/types/zodSchemas";
 
 /**
- * Fetches the daily brief for a date, or the most recent one when
- * `query.latest` is set.
+ * Fetches every domain's brief for a date, or for the most recent date when
+ * `query.latest` is set. One response serves all domain tabs.
  *
  * The backend answers 404 when no brief exists for that selection. That is an
  * empty state rather than an error, so it resolves to `null`.
  */
-export async function fetchWeatherBrief(
+export async function fetchWeatherBriefs(
   query: BriefQuery = {}
-): Promise<WeatherBrief | null> {
+): Promise<WeatherBriefsResponse | null> {
   try {
     const response = await fetchData<unknown>(
       "/weather/brief",
       toBriefQueryParams(query)
     );
 
-    const parsed = weatherBriefSchema.safeParse(response);
+    const parsed = weatherBriefsResponseSchema.safeParse(response);
 
     if (!parsed.success) {
       throw new Error("Invalid weather brief response");

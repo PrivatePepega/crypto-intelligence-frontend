@@ -165,22 +165,49 @@ export function calculateSMA(item: IndicatorDataItem | undefined, period: number
 }
 
 /**
- * Format a value for display based on the indicator's unit
+ * Format a value for display based on the indicator's unit.
+ *
+ * Some FRED-style units already scale the stored value (`Billions of Dollars`,
+ * `Thousands of Persons`). Those values must be scaled once before compacting,
+ * otherwise M2 at 23,342.8 would be rendered as a few dollars.
  */
 export function formatValue(value: number | null, unit: string): string {
   if (value === null) return "—";
 
   const lowerUnit = unit.toLowerCase();
 
-  if (lowerUnit.includes("percent")) {
-    return `${value.toFixed(2)}%`;
-  }
   if (lowerUnit.includes("percentage point")) {
     return `${value.toFixed(2)}pp`;
+  }
+  if (lowerUnit.includes("percent")) {
+    return `${value.toFixed(2)}%`;
   }
   if (lowerUnit.includes("index")) {
     return value.toFixed(lowerUnit.includes("0-100") ? 1 : 2);
   }
+
+  const scale = getUnitScale(lowerUnit);
+
+  if (scale) {
+    const isCurrency =
+      lowerUnit.includes("dollar") || lowerUnit.includes("usd");
+
+    // Non-currency counts keep their native scale (e.g. `159,044` thousand
+    // persons) so the unit label next to the value still makes sense.
+    if (!isCurrency) {
+      return new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
+
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value * scale);
+  }
+
   if (lowerUnit.includes("dollar") || lowerUnit.includes("usd")) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -188,28 +215,26 @@ export function formatValue(value: number | null, unit: string): string {
       maximumFractionDigits: 2,
     }).format(value);
   }
-  if (lowerUnit.includes("thousand")) {
-    return new Intl.NumberFormat("en-US").format(value);
-  }
-  if (lowerUnit.includes("billion")) {
+
+  if (Math.abs(value) >= 1e6) {
     return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 1,
-    }).format(value / 1e9).replace(/\.00$/, "") + "B";
-  }
-  if (lowerUnit.includes("million")) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 1,
-    }).format(value / 1e6).replace(/\.00$/, "") + "M";
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value);
   }
 
   return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+/** Multiplier implied by a unit label such as `Billions of Dollars`. */
+function getUnitScale(lowerUnit: string): number | null {
+  if (lowerUnit.includes("trillion")) return 1e12;
+  if (lowerUnit.includes("billion")) return 1e9;
+  if (lowerUnit.includes("million")) return 1e6;
+  if (lowerUnit.includes("thousand")) return 1e3;
+  return null;
 }
 
 /**

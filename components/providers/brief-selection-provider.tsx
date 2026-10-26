@@ -6,9 +6,9 @@ import type { UseQueryResult } from "@tanstack/react-query";
 
 import { useClimateBrief } from "@/hooks/use-climate-brief";
 import { useTodayApiDate } from "@/hooks/use-today-api-date";
-import { useWeatherBrief } from "@/hooks/use-weather-brief";
+import { useWeatherBriefs } from "@/hooks/use-weather-brief";
 import { useWeatherObservationsResearch } from "@/hooks/use-weather-observations-research";
-import { WEATHER_DOMAIN_IDS } from "@/lib/weather-domains";
+import { WEATHER_DOMAIN_IDS, type WeatherDomain } from "@/lib/weather-domains";
 import type {
   ClimateBrief,
   DatedBriefResult,
@@ -22,7 +22,13 @@ interface BriefSelectionContextValue {
   latest: boolean;
   setDate: (date: string) => void;
   setLatest: (latest: boolean) => void;
-  weather: UseQueryResult<DatedBriefResult<WeatherBrief>>;
+  /** Domain whose weather brief is currently shown. */
+  weatherDomain: WeatherDomain;
+  setWeatherDomain: (domain: WeatherDomain) => void;
+  /**
+   * Every domain's brief for the selected date, fetched in one request.
+   */
+  weatherBriefs: UseQueryResult<DatedBriefResult<WeatherBrief[]>>;
   climate: UseQueryResult<DatedBriefResult<ClimateBrief>>;
   observations: UseQueryResult<
     DatedBriefResult<WeatherObservationsResearchResponse>
@@ -46,6 +52,9 @@ export function BriefSelectionProvider({ children }: { children: ReactNode }) {
   const today = useTodayApiDate();
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [latest, setLatest] = useState(false);
+  const [weatherDomain, setWeatherDomain] = useState<WeatherDomain>(
+    WEATHER_DOMAIN_IDS[0]
+  );
 
   const date = pickedDate ?? today;
 
@@ -55,16 +64,16 @@ export function BriefSelectionProvider({ children }: { children: ReactNode }) {
     latest: onDashboard && latest,
   };
 
-  const weather = useWeatherBrief(query);
+  const weatherBriefs = useWeatherBriefs(query);
   const climate = useClimateBrief(query);
   const observations = useWeatherObservationsResearch(WEATHER_DOMAIN_IDS, query);
 
   const isLoading =
-    weather.isLoading || climate.isLoading || observations.isLoading;
+    weatherBriefs.isLoading || climate.isLoading || observations.isLoading;
 
   const isFallback =
     !latest &&
-    (Boolean(weather.data?.isFallback) ||
+    (Boolean(weatherBriefs.data?.isFallback) ||
       Boolean(climate.data?.isFallback) ||
       Boolean(observations.data?.isFallback));
 
@@ -75,7 +84,9 @@ export function BriefSelectionProvider({ children }: { children: ReactNode }) {
         latest,
         setDate: setPickedDate,
         setLatest,
-        weather,
+        weatherDomain,
+        setWeatherDomain,
+        weatherBriefs,
         climate,
         observations,
         isLoading,

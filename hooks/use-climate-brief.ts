@@ -20,7 +20,15 @@ export function useClimateBrief({ date, latest }: BriefQuery) {
       const dated = await fetchClimateBrief({ date });
 
       if (dated) {
-        return { data: dated, isFallback: false };
+        // The climate route currently always returns the newest row. Compare
+        // its stored date with the requested one so the card can say the day
+        // itself had no brief instead of silently relabelling the snapshot.
+        const appliedDate = dated.date.slice(0, 10);
+
+        return {
+          data: dated,
+          isFallback: Boolean(date && appliedDate !== date),
+        };
       }
 
       // The selected day has no brief. Show the newest one and flag it so the

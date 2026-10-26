@@ -3,31 +3,42 @@
 import { useQuery } from "@tanstack/react-query";
 
 import type { BriefQuery } from "@/lib/brief-query";
-import { fetchWeatherBrief } from "@/lib/weather-api";
+import { fetchWeatherBriefs } from "@/lib/weather-api";
 import type { DatedBriefResult, WeatherBrief } from "@/types";
 
-export function useWeatherBrief({ date, latest }: BriefQuery) {
+/**
+ * Every domain's brief for one date, in a single response. The page selects
+ * the active domain from the returned array, so tab switches stay local.
+ */
+export function useWeatherBriefs({ date, latest }: BriefQuery) {
   return useQuery({
-    queryKey: ["weather", "brief", latest ? "latest" : (date ?? null)],
-    queryFn: async (): Promise<DatedBriefResult<WeatherBrief>> => {
+    queryKey: ["weather", "briefs", latest ? "latest" : (date ?? null)],
+    queryFn: async (): Promise<DatedBriefResult<WeatherBrief[]>> => {
       if (latest) {
-        return {
-          data: await fetchWeatherBrief({ latest: true }),
-          isFallback: false,
-        };
+        const result = await fetchWeatherBriefs({ latest: true });
+
+        return { data: result?.briefs ?? [], isFallback: false };
       }
 
-      const dated = await fetchWeatherBrief({ date });
+      const dated = await fetchWeatherBriefs({ date });
 
-      if (dated) {
-        return { data: dated, isFallback: false };
+      if (dated && dated.briefs.length > 0) {
+        // If the backend substituted a different day, surface the same
+        // "No data for <date>" notice instead of silently relabelling it.
+        const appliedDate = dated.date?.slice(0, 10);
+
+        return {
+          data: dated.briefs,
+          isFallback: Boolean(date && appliedDate && appliedDate !== date),
+        };
       }
 
       // The selected day has no brief. Show the newest one and flag it so the
       // UI can say the date itself had no data.
-      const fallback = await fetchWeatherBrief({ latest: true });
+      const fallback = await fetchWeatherBriefs({ latest: true });
+      const briefs = fallback?.briefs ?? [];
 
-      return { data: fallback, isFallback: fallback !== null };
+      return { data: briefs, isFallback: briefs.length > 0 };
     },
     enabled: Boolean(latest || date),
     staleTime: 5 * 60 * 1000, // 5 minutes

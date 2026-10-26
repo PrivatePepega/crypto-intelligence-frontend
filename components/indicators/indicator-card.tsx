@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { AreaChart } from "@/components/indicators/areaChart";
 import type { IndicatorDataItem } from "@/types";
+import type { IndicatorCardMetric } from "@/lib/indicator-metrics";
 import {
   calculateNetChangeForPeriod,
   calculateSMAForPeriod,
@@ -30,6 +31,11 @@ import { cn } from "@/lib/utils";
 
 interface IndicatorCardProps {
   item: IndicatorDataItem;
+  /**
+   * Optional single-reading view. Multi-column sources (CFTC, Binance,
+   * CoinMarketCap) use it to render one focused card per measurement.
+   */
+  metric?: IndicatorCardMetric;
 }
 
 const HISTORY_PERIODS = [
@@ -48,22 +54,36 @@ function getChangeClass(change: number | null): string {
     : "text-red-600 dark:text-red-400";
 }
 
-function formatSignedValue(value: number | null, unit: string): string {
+function formatSignedValue(
+  value: number | null,
+  format: (value: number | null) => string
+): string {
   if (value === null) return "—";
-  return `${value > 0 ? "+" : ""}${formatValue(value, unit)}`;
+  return `${value > 0 ? "+" : ""}${format(value)}`;
 }
 
-export function IndicatorCard({ item }: IndicatorCardProps) {
+export function IndicatorCard({ item, metric }: IndicatorCardProps) {
   const { indicator } = item;
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [showPopover, setShowPopover] = React.useState(false);
   const [showChart, setShowChart] = React.useState(false);
 
   const historicalSeries = React.useMemo(() => getHistoricalSeries(item), [item]);
-  const chartValueFormatter = React.useCallback(
-    (value: number) => formatValue(value, indicator.unit),
-    [indicator.unit]
+
+  const format = React.useCallback(
+    (value: number | null) =>
+      metric ? metric.formatValue(value) : formatValue(value, indicator.unit),
+    [indicator.unit, metric]
   );
+  const chartValueFormatter = React.useCallback(
+    (value: number) => format(value),
+    [format]
+  );
+
+  const unitLabel = metric?.unitLabel ?? indicator.unit;
+  const title = metric?.label ?? indicator.name;
+  const components = metric?.components ?? [];
+  const hasComponents = components.length > 0;
 
   const currentValue = getCurrentValue(item);
   const netChange1M = calculateNetChangeForPeriod(item, "1M");
@@ -73,7 +93,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
       <Card
         className={cn(
           "flex flex-col gap-3 p-4",
-          isExpanded ? "min-h-[280px]" : "h-[280px]"
+          !hasComponents && !isExpanded && "h-[280px]"
         )}
       >
         {/* Metadata and actions */}
@@ -107,9 +127,15 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
 
               <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                  <DialogTitle>{indicator.name}</DialogTitle>
+                  <DialogTitle>{title}</DialogTitle>
 
                   <DialogDescription className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {metric && (
+                      <span className="w-full text-xs font-medium text-foreground/80">
+                        {indicator.name}
+                      </span>
+                    )}
+
                     <Badge
                       variant="outline"
                       className="px-1.5 py-0 text-[10px] font-medium"
@@ -134,12 +160,14 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
 
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className="text-3xl font-extrabold tracking-tight tabular-nums">
-                    {formatValue(currentValue, indicator.unit)}
+                    {format(currentValue)}
                   </span>
 
-                  <span className="text-sm text-muted-foreground">
-                    {indicator.unit}
-                  </span>
+                  {unitLabel && (
+                    <span className="text-sm text-muted-foreground">
+                      {unitLabel}
+                    </span>
+                  )}
                 </div>
 
                 <AreaChart
@@ -152,7 +180,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                   {historicalSeries.length > 0
                     ? `${historicalSeries.length} observation${
                         historicalSeries.length === 1 ? "" : "s"
-                      } · drag to pan, scroll over the scale to zoom`
+                      } · scroll or pinch to zoom, drag to pan, double-click an axis to reset`
                     : "No historical observations available for this indicator"}
                 </p>
               </DialogContent>
@@ -180,7 +208,18 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                     </Badge>
                   </div>
 
-                  <h4 className="text-sm font-semibold">{indicator.name}</h4>
+                  <h4 className="text-sm font-semibold">{title}</h4>
+
+                  {metric && (
+                    <>
+                      <p className="text-[11px] font-medium text-foreground/80">
+                        {indicator.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {metric.subtitle}
+                      </p>
+                    </>
+                  )}
 
                   <p className="text-xs text-muted-foreground">
                     Source: {indicator.source} · {indicator.nativeFrequency}
@@ -250,24 +289,70 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
           </div>
         </div>
 
-        {/* Indicator name */}
-        <h3 className="break-words text-xl font-bold leading-snug">
-          {indicator.name}
-        </h3>
+        {/* Indicator name / focused metric title */}
+        <div>
+          {metric && (
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {indicator.name}
+            </p>
+          )}
+
+          <h3 className="break-words text-xl font-bold leading-snug">
+            {title}
+          </h3>
+
+          {metric && (
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">
+              {metric.subtitle}
+            </p>
+          )}
+        </div>
 
         {/* Flexible middle section: price anchored above the divider */}
         <div className="flex flex-1 flex-col justify-end gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-4xl font-extrabold tracking-tight tabular-nums">
-                {formatValue(currentValue, indicator.unit)}
+                {format(currentValue)}
               </span>
 
-              <span className="text-sm text-muted-foreground">
-                {indicator.unit}
-              </span>
+              {unitLabel && (
+                <span className="text-sm text-muted-foreground">{unitLabel}</span>
+              )}
             </div>
           </div>
+
+          {hasComponents && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+              {components.map((component) => (
+                <div key={component.label} className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {component.label}
+                  </p>
+
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <span className="break-words text-sm font-semibold tabular-nums text-foreground">
+                      {component.formatValue(component.value)}
+                    </span>
+
+                    {component.deltaPercent !== null && (
+                      <span
+                        className={cn(
+                          "text-[10px] font-medium tabular-nums",
+                          getChangeClass(component.deltaPercent)
+                        )}
+                      >
+                        {formatSignedValue(
+                          component.deltaPercent,
+                          (value) => `${value?.toFixed(1) ?? "—"}%`
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="border-t" />
         </div>
@@ -280,7 +365,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
             </p>
 
             <span className="break-words text-lg font-bold text-foreground">
-              {formatValue(calculateSMAForPeriod(item, "1M"), indicator.unit)}
+              {format(calculateSMAForPeriod(item, "1M"))}
             </span>
           </div>
 
@@ -295,7 +380,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                 getChangeClass(netChange1M)
               )}
             >
-              {formatSignedValue(netChange1M, indicator.unit)}
+              {formatSignedValue(netChange1M, format)}
             </span>
           </div>
         </div>
@@ -341,10 +426,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                     <div className="grid grid-cols-3 items-center gap-2 rounded-b-lg border border-t-0 border-border/60 px-3 py-3">
                       <div className="flex min-h-8 min-w-0 items-center justify-center text-center">
                         <p className="break-words text-xs tabular-nums text-muted-foreground">
-                          {formatValue(
-                            calculateSMAForPeriod(item, period),
-                            indicator.unit
-                          )}
+                          {format(calculateSMAForPeriod(item, period))}
                         </p>
                       </div>
 
@@ -355,7 +437,7 @@ export function IndicatorCard({ item }: IndicatorCardProps) {
                             changeClass
                           )}
                         >
-                          {formatSignedValue(net, indicator.unit)}
+                          {formatSignedValue(net, format)}
                         </p>
                       </div>
 

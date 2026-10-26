@@ -110,26 +110,61 @@ never in the frontend.
 
 ## Brief API contract
 
-The public brief endpoints accept a single-day selector as a query parameter:
+The public brief endpoints accept a single-day selector as a query parameter.
+`GET /weather/brief` returns every domain's brief for that day in one response.
 
 | Request | Meaning |
 | --- | --- |
-| `GET /api-v1/weather/brief?date=2026-10-15` | Weather human brief for that calendar day |
-| `GET /api-v1/weather/brief?latest=true` | Most recent stored weather brief, regardless of date |
+| `GET /api-v1/weather/brief?date=2026-10-15` | All domains' human briefs for that calendar day |
+| `GET /api-v1/weather/brief?latest=true` | All domains' most recent stored briefs |
 | `GET /api-v1/climate/brief?date=2026-10-15` | Climate human brief for that calendar day |
 | `GET /api-v1/climate/brief?latest=true` | Most recent stored climate brief |
 | `POST /api-v1/weather/observations-research?date=2026-10-15` | Observations + research for that day; body stays `{ domains }` |
 | `POST /api-v1/weather/observations-research?latest=true` | Most recent stored observations + research |
 
-- Dates use `YYYY-MM-DD`.
-- `latest` wins if both are ever sent; the frontend only sends one.
-- The brief routes answer `404` when no row exists for the selection; the frontend
-  treats that as an empty state, not an error.
-- When the selected date is empty, each section refetches with `latest=true`,
-  shows a "No data for <date>" notice in the card, and renders the latest data.
-  The sidebar widget shows a "No Data" badge in that state.
-- `components/providers/brief-selection-provider.tsx` owns the date/Latest state
-  and the three brief queries so the sidebar widget and page never disagree.
+Weather brief response shape:
+
+```json
+{
+  "briefs": [
+    {
+      "id": "uuid",
+      "brief_date": "2026-10-15T04:00:00.000Z",
+      "domain": "macro",
+      "human_brief": { "title": "...", "sections": [] },
+      "created_at": "2026-10-15T04:00:00.000Z",
+      "updated_at": "2026-10-15T04:00:00.000Z"
+    }
+  ],
+  "date": "2026-10-15",
+  "latest": false,
+  "limit": 6,
+  "total": 6
+}
+```
+
+- Request dates use `YYYY-MM-DD`. Response `brief_date` values are timestamps;
+  the frontend compares only the first ten characters.
+- A request with neither selector returns `400`. `latest=true` ignores any
+  `date` and selects `MAX(brief_date)`; in that case the response `date` is the
+  resolved latest date.
+- Weather domains are `macro`, `financial_markets`, `geopolitics`,
+  `ai_technology_industry`, `commodities_energy`, and `crypto`.
+- The response contains every domain stored for the day, so one request serves
+  all six domain tabs and the climate overview fallback. No `domains` parameter
+  is needed.
+- `human_brief` is JSONB. The API returns it as an object, but the frontend also
+  accepts a JSON string and normalizes both before Zod validation.
+- `limit` and `total` are informational and optional in the frontend schema. The
+  frontend renders the returned `briefs` array as-is.
+- `GET /weather/brief?date=...` answers `404` when that day has no rows; the
+  frontend treats that as an empty state, not an error.
+- When the selected date is empty, the weather query refetches with
+  `latest=true`, shows a "No data for <date>" notice in the card, and renders the
+  latest data. The sidebar widget shows a "No Data" badge in that state.
+- `components/providers/brief-selection-provider.tsx` owns the date/Latest state,
+  the selected weather domain, and the three brief queries. The weather query
+  fetches the whole day's briefs at once.
 
 ## Chatbot API contract
 
@@ -163,15 +198,38 @@ The backend handoff is `docs/CHATBOT_FRONTEND.md` in the backend repository
 | `components/chat/chat-widget.tsx` | Floating assistant on every page; auth-gated; uses the chatbot hook |
 | `lib/brief-query.ts` | `BriefQuery` type, `toBriefQueryParams` (`date` / `latest=true`), `getTodayApiDate` |
 | `hooks/use-today-api-date.ts` | Hydration-safe browser "today" via `useSyncExternalStore` |
-| `components/providers/brief-selection-provider.tsx` | Shared date/Latest state, the three brief queries, and fallback status |
+| `hooks/use-weather-brief.ts` | One date-scoped request for all domains; falls back to latest when the date is empty |
+| `components/providers/brief-selection-provider.tsx` | Shared date/Latest state, active weather domain, the three brief queries, and fallback status |
+| `components/weather/weather-domain-tabs.tsx` | Six domain buttons that switch the weather brief card |
 | `components/layout/BriefDateWidget.tsx` | Sidebar date picker + Latest toggle, pinned above the Actions section |
 | `components/briefs/no-data-notice.tsx` | "No data for <date>" notice shown when a section falls back to latest |
 | `types/zodSchemas.ts` | Runtime validation of auth and chatbot responses |
 
 ## Open backend requests
 
-None currently. The previously requested chat endpoint is implemented at
-`/api-v1/chatbot/messages`.
+The weather brief route now supports both selectors:
+
+- `GET /api-v1/weather/brief?date=YYYY-MM-DD` returns that day's six briefs.
+- `GET /api-v1/weather/brief?latest=true` returns the newest stored day's six
+  briefs and resolves `date` for the caller.
+- A request with neither selector returns `400`; an empty date returns `404`.
+
+The other two brief routes still ignore the selector and therefore cannot give
+the General page date-scoped snapshots:
+
+- `GET /api-v1/climate/brief` always returns the newest row. The frontend sends
+  `date`/`latest` but the controller currently ignores it.
+- `POST /api-v1/weather/observations-research` returns every stored row for the
+  requested domains. It ignores the `date` and `latest` query parameters.
+
+The frontend still sends the selectors so these sections become date-scoped once
+the backend honours them. The climate section also compares the returned date
+with the selected date, so it shows the fallback notice today. The observations
+section cannot detect an empty day until the route filters rows.
+
+> **Domain naming:** the live database uses `financial_markets`. A sample request
+> with `fundamental_markets` would not match any stored brief, so keep the id
+> spelled that way only if the backend data is renamed as well.
 
 ## Current local state (2026-10-23)
 
