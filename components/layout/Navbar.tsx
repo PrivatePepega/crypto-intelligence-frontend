@@ -2,10 +2,19 @@
 
 import { Search, User } from "lucide-react"
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react"
+
+import { buttonVariants } from "@/components/ui/button";
 
 export function Navbar() {
   const [search, setSearch] = useState("")
+  const router = useRouter()
+
+  const openProject = (id: string) => {
+    setSearch("")
+    router.push(`/crypto/${encodeURIComponent(id)}`)
+  }
 
   return (
     <nav className="flex h-16 items-center border-b bg-background px-4 md:px-6">
@@ -32,7 +41,11 @@ export function Navbar() {
         {/* Temporary search results */}
         {search.length > 0 && (
           <div className="absolute left-0 right-0 top-12 z-50 rounded-md border bg-background p-2 shadow-lg">
-            <button className="flex w-full items-center gap-3 rounded-md p-3 text-left hover:bg-muted">
+            <button
+              type="button"
+              onClick={() => openProject("dogecoin")}
+              className="flex w-full items-center gap-3 rounded-md p-3 text-left hover:bg-muted"
+            >
               <div className="flex size-8 items-center justify-center rounded-full bg-muted font-bold">
                 D
               </div>
@@ -46,18 +59,23 @@ export function Navbar() {
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="ml-auto flex items-center gap-1">
-
-
+      {/* Centered in the gap between the search field and the account button */}
+      <div className="flex flex-1 justify-center px-2">
         <Link
-          href="/user"
-          aria-label="Your account"
-          className="ml-1 rounded-md p-2 hover:bg-muted"
+          href="/"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
-          <User className="size-5" />
+          Home
         </Link>
       </div>
+
+      <Link
+        href="/user"
+        aria-label="Your account"
+        className="shrink-0 rounded-md p-2 hover:bg-muted"
+      >
+        <User className="size-5" />
+      </Link>
     </nav>
   )
 }

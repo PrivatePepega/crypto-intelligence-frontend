@@ -66,6 +66,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const baseRoute = `/${pathname.split("/")[1]}`
+  const isHome = pathname === "/"
+
+  // The home screen is the General dashboard, so its sidebar only needs the
+  // Overview entry. Project pages keep the full navigation.
+  const visibleNavigation = isHome
+    ? navigation.filter((item) => item.href === "overview")
+    : navigation
 
 
   const handleRouter = (href: string) => {
@@ -86,7 +93,7 @@ export function Sidebar() {
         </p>
 
         <nav className="space-y-1">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const Icon = item.icon
             const route = `${baseRoute}/${item.href}`
 
