@@ -52,9 +52,13 @@ const updateData = async <T>(url: string, data: unknown): Promise<T> => {
 
 const fetchData = async <T>(
   url: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
+  timeoutMs?: number
 ): Promise<T> => {
-  const response = await api.get(url, { params });
+  const response = await api.get(url, {
+    params,
+    ...(timeoutMs === undefined ? {} : { timeout: timeoutMs }),
+  });
 
   return response.data;
 };

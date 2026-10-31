@@ -184,6 +184,41 @@ The backend handoff is `docs/CHATBOT_FRONTEND.md` in the backend repository
   `http://localhost:5000/api-v1`). The handoff's `NEXT_PUBLIC_API_BASE_URL`
   example is not used here; do not add a second base URL variable.
 
+## Asset API contract
+
+One endpoint per asset class, each taking the ticker/symbol in the path:
+
+| Request | Meaning |
+| --- | --- |
+| `GET /api-v1/stocks/AAPL` | Stock intelligence for a ticker |
+| `GET /api-v1/crypto/DOGE` | Crypto intelligence; the route uppercases the ticker |
+| `GET /api-v1/commodities/GCUSD` | Commodity intelligence; FMP first, EIA fallback |
+
+- All three accept `?refresh=true` to bypass the database freshness check.
+- Unknown tickers answer `404 { error: "wrong_ticker" }`.
+- A cache miss fetches from external providers and writes to the database, so
+  the first request for an asset can take tens of seconds.
+  `lib/asset-api.ts` uses a 90 s timeout for these calls.
+- Frontend crypto routes use the CoinGecko id (`/crypto/dogecoin`), not the
+  ticker. The page resolves the id to the symbol (`DOGE`) through
+  `lib/asset-search.ts` before calling the backend.
+- The stock response contains `company` (exchange, CIK, sector, industry,
+  country, logo, description), `market` (price, previous close, day/52-week
+  ranges, moving averages), `financialReports.quarterly` / `.annual` (13 SEC
+  metrics per period plus filing provenance) and `history`, which is currently
+  always `null`. `/stock/[id]` renders all of these; `history` is reserved for a
+  future price chart.
+
+### Local asset search
+
+`GET /api/assets/search?q=<query>` is a Next.js route handler, not a backend
+route. It filters `data/stock-tickers.json`, `data/crypto-tickers.json` and
+`data/commodities-tickers.json` on the server and returns at most `limit`
+results per asset class (default 5, max 10). The ticker files never reach the
+browser bundle. Results are ranked by exact ticker/name, name prefix, ticker
+prefix, then substring, and a shorter name wins ties so canonical assets
+("Dogecoin") sort above derivative tokens.
+
 ## Frontend mapping
 
 | Frontend file | Responsibility |
@@ -204,6 +239,18 @@ The backend handoff is `docs/CHATBOT_FRONTEND.md` in the backend repository
 | `components/layout/BriefDateWidget.tsx` | Sidebar date picker + Latest toggle, pinned above the Actions section |
 | `components/briefs/no-data-notice.tsx` | "No data for <date>" notice shown when a section falls back to latest |
 | `types/zodSchemas.ts` | Runtime validation of auth and chatbot responses |
+| `lib/asset-types.ts` | Shared `AssetType` / `AssetSearchResult` types, group labels, route helper |
+| `lib/asset-search.ts` | Server-only ticker index, autocomplete ranking, route-id to ticker resolution |
+| `app/api/assets/search/route.ts` | Autocomplete endpoint used by the navbar |
+| `lib/asset-api.ts` | Typed `fetchStockAsset` / `fetchCryptoAsset` / `fetchCommodityAsset` clients with Zod validation |
+| `lib/asset-format.ts` | Shared money, percent, range and date formatting, including invalid-currency fallback |
+| `hooks/use-asset-search.ts` | Debounced, abortable autocomplete hook |
+| `components/layout/Navbar.tsx` | Grouped autocomplete and navigation to `/stock`, `/crypto`, `/commodity` detail routes |
+| `components/assets/stock-profile.tsx` | Stock identity header: logo, name, price, description, website |
+| `components/assets/stock-statistics.tsx` | Quote statistics, day/52-week range bars, moving averages |
+| `components/assets/stock-company-details.tsx` | Registry and classification facts, SEC CIK link |
+| `components/assets/stock-financials.tsx` | Quarterly/annual toggle, metric table, revenue chart and filing provenance |
+| `scripts/fetch-asset-responses.ts` | Dumps one raw response per asset class into `data/` |
 
 ## Open backend requests
 
@@ -230,6 +277,17 @@ section cannot detect an empty day until the route filters rows.
 > **Domain naming:** the live database uses `financial_markets`. A sample request
 > with `fundamental_markets` would not match any stored brief, so keep the id
 > spelled that way only if the backend data is renamed as well.
+
+Asset endpoints:
+
+- `GET /api-v1/crypto/:ticker` hard-codes `market.price: null` on the database
+  cache-hit path (`buildResponseFromDB`). The first request for an asset returns
+  the normalized price, but later page loads show no price. The frontend renders
+  `—` until the route returns stored market values.
+- The crypto route echoes the requested ticker in `symbol`. Requesting a
+  non-canonical ticker (`DOGECOIN`) returns `symbol: "DOGECOIN"` rather than the
+  canonical `DOGE`, so the frontend resolves the CoinGecko id to the ticker
+  before calling the route.
 
 ## Current local state (2026-10-23)
 
