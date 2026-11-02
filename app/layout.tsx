@@ -7,6 +7,7 @@ import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ChatWidget } from "@/components/chat/chat-widget";
+import { ChatTestWidget } from "@/components/chat/chat-test-widget";
 import { AuthProvider } from "@/components/providers/auth-context-provider";
 import { BriefSelectionProvider } from "@/components/providers/brief-selection-provider";
 import ReactQueryProvider from "@/components/providers/react-query-provider";
@@ -51,6 +52,7 @@ export default function RootLayout({
               </div>
 
               <ChatWidget />
+              <ChatTestWidget />
             </BriefSelectionProvider>
           </AuthProvider>
         </ReactQueryProvider>
